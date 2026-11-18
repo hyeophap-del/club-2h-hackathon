@@ -1,5 +1,5 @@
 // 서비스 워커: 홈 화면에 설치(PWA), 오프라인에서도 화면 열기, 알림 클릭 처리
-const CACHE = 'doc-assistant-v2';
+const CACHE = 'doc-assistant-v3';
 const ASSETS = [
   './', 'index.html', 'upload.html', 'calendar.html', 'docs.html', 'settings.html',
   'css/style.css', 'icon.svg', 'manifest.webmanifest',

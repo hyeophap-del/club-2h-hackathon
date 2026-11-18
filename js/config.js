@@ -1,6 +1,6 @@
 // 앱 전체 설정값. 모델명은 Google AI Studio(https://aistudio.google.com)에서
 // 현재 무료로 제공되는 Flash 계열 모델 이름을 확인한 뒤 바꿔 주세요.
-export const GEMINI_MODEL = 'gemini-2.5-flash';
+export const GEMINI_MODEL = 'gemini-flash-latest'; // 항상 최신 Flash 모델을 가리키는 별칭
 
 export const GEMINI_ENDPOINT = (model) =>
   `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;

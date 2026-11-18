@@ -178,6 +178,11 @@ async function callGemini(pages, apiKey, model, language) {
     if (res.status === 400 && /API key/i.test(msg)) throw new Error('API 키가 올바르지 않습니다. 설정에서 확인해 주세요.');
     if (res.status === 403) throw new Error('API 키 권한이 없습니다. 설정에서 키를 확인해 주세요.');
     if (res.status === 404) throw new Error(`모델(${model})을 찾을 수 없습니다. 설정에서 모델 이름을 확인해 주세요.`);
+    if (res.status >= 500) {
+      const err = new Error('Google AI 서버가 지금 붐빕니다. 잠시 후 다시 시도하거나 "예시로 체험하기"를 이용해 주세요.');
+      err.retryable = true; // 일시적인 과부하(503 등) → 재시도·대체 모델 대상
+      throw err;
+    }
     throw new Error(`분석 실패 (${res.status}) ${msg}`);
   }
 
@@ -187,21 +192,42 @@ async function callGemini(pages, apiKey, model, language) {
   return JSON.parse(text);
 }
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// 서버가 붐빌 때(503) 같은 모델로 한 번 더 기다렸다 시도하고, 그래도 안 되면 가벼운 대체 모델로 시도
+const FALLBACK_MODEL = 'gemini-flash-lite-latest';
+
 // pages: [{mimeType, data}] (한 문서의 여러 장)
-export async function analyzeDocument(pages) {
+// onStatus(text): 재시도 중임을 화면에 알리고 싶을 때 (선택)
+export async function analyzeDocument(pages, onStatus) {
   const { apiKey, model, language } = getSettings();
   if (!apiKey) throw new Error('API 키가 없습니다. 설정에서 Gemini API 키를 입력하거나 "예시로 체험하기"를 눌러 주세요.');
 
+  const plan = [
+    { model, wait: 0 },
+    { model, wait: 3000 },
+    ...(model !== FALLBACK_MODEL ? [{ model: FALLBACK_MODEL, wait: 1000 }] : []),
+  ];
   let lastError;
-  for (let attempt = 0; attempt < 2; attempt++) {
+  let badJson = 0;
+  for (const step of plan) {
+    if (step.wait) {
+      onStatus?.(step.model === model ? 'AI 서버가 붐벼서 잠시 후 다시 시도합니다…' : '가벼운 대체 모델로 다시 시도합니다…');
+      await sleep(step.wait);
+    }
     try {
-      const result = await callGemini(pages, apiKey, model, language);
+      const result = await callGemini(pages, apiKey, step.model, language);
       if (isValidResult(result)) return normalize(result, pages.length);
       lastError = new Error('AI 응답 형식이 올바르지 않습니다.');
     } catch (err) {
       lastError = err;
-      // JSON 파싱 오류만 재시도, 나머지(키 오류, 한도 초과)는 바로 중단
-      if (!(err instanceof SyntaxError)) throw err;
+      if (err instanceof SyntaxError) {
+        // 응답 JSON이 깨진 경우 한 번만 재시도
+        if (++badJson > 1) break;
+        continue;
+      }
+      // 키 오류·한도 초과 등은 재시도해도 소용없으므로 바로 중단
+      if (!err.retryable) throw err;
     }
   }
   throw lastError;

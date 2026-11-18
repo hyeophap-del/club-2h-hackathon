@@ -9,7 +9,8 @@
 <body>
   <main class="container">
     <section class="hero card">
-      <h1>찍으면, 그날의 할 일이 정리됩니다</h1>
+      <span class="hero-eyebrow">✨ AI 문서 비서</span>
+      <h1>찍으면, 그날의 할 일이<br />정리됩니다</h1>
       <p class="muted">가정통신문·과제 공지를 찍으면 할 일과 마감일, 그날 날씨, 출발 시각, 준비물까지 한 번에 정리해 알려드려요.</p>
       <a class="btn primary" href="upload.html">📷 문서 올리기</a>
       <div class="row-gap center-row">
@@ -23,24 +24,24 @@
     </section>
 
     <section id="briefing-section" hidden>
-      <h2>📋 오늘·내일 브리핑</h2>
+      <div class="section-head"><h2>📋 오늘·내일 브리핑</h2></div>
       <div id="briefing"></div>
     </section>
 
     <section>
-      <h2>다가오는 할 일 <small class="muted">7일 이내</small></h2>
+      <div class="section-head"><h2>다가오는 할 일 <small class="muted">7일 이내</small></h2></div>
       <div id="upcoming"></div>
     </section>
 
     <section>
-      <h2>놓친 할 일</h2>
+      <div class="section-head"><h2>놓친 할 일</h2></div>
       <div id="overdue"></div>
     </section>
 
     <section>
-      <div class="row-between">
+      <div class="section-head">
         <h2>최근 문서</h2>
-        <a href="docs.html">문서함 전체 보기 →</a>
+        <a href="docs.html">전체 보기 ›</a>
       </div>
       <div id="docs"></div>
     </section>

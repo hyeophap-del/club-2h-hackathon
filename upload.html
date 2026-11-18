@@ -220,7 +220,7 @@
       try {
         const work = demo
           ? new Promise((r) => setTimeout(() => r(structuredClone(demo)), 2200))
-          : analyzeDocument(pages.map((p) => p.inline));
+          : analyzeDocument(pages.map((p) => p.inline), (text) => { $('#loading-text').textContent = text; });
         result = await animateProgress(work);
         await prepareScans();
         renderReview();

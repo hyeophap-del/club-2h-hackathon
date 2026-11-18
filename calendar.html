@@ -8,21 +8,23 @@
 </head>
 <body>
   <main class="container">
-    <div class="row-between">
-      <button class="btn" id="prev">‹</button>
+    <div class="row-between cal-top">
+      <button class="btn" id="prev" aria-label="이전 달">‹</button>
       <h1 id="month-label"></h1>
-      <button class="btn" id="next">›</button>
+      <button class="btn" id="next" aria-label="다음 달">›</button>
     </div>
-    <div class="row-gap">
+    <div class="row-gap cal-tools">
       <button class="btn small" id="today">오늘</button>
       <span class="spacer"></span>
       <button class="btn small" id="export-ics" title="웹을 닫아도 휴대폰이 알람을 울리도록 기본 캘린더로 옮깁니다">📲 휴대폰 캘린더로 내보내기</button>
     </div>
-    <div class="legend" id="legend"></div>
-    <div class="calendar" id="calendar"></div>
+    <div class="card cal-card">
+      <div class="legend" id="legend"></div>
+      <div class="calendar" id="calendar"></div>
+    </div>
 
     <section>
-      <div class="row-between">
+      <div class="row-between section-head">
         <h2 id="day-label"></h2>
         <button class="btn" id="add">+ 할 일 추가</button>
       </div>
