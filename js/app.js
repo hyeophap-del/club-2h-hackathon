@@ -542,7 +542,7 @@
             const dt = new Date(iso + "T00:00:00");
             const name = k === 0 ? "오늘" : k === 1 ? "내일" : DateAgent.WEEKDAYS[dt.getDay()];
             return `<div class="day${iso === docIso ? " is-doc" : ""}" title="${w.text}">
-              <div class="day__name">${name} ${dt.getDate()}일</div>
+              <div class="day__name">${name}<br>${dt.getDate()}일</div>
               <div class="day__i" aria-hidden="true">${w.icon}</div>
               <div><span class="day__hi">${Math.round(d.temperature_2m_max[i])}°</span> <span class="day__lo">${Math.round(d.temperature_2m_min[i])}°</span></div>
             </div>`;
