@@ -1,92 +1,294 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>일정 추출 테스트</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>문서 일정 비서</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg: #f7f7f5; --panel: #ffffff; --text: #1d1d1b; --muted: #6b6b66;
-    --line: #e2e2dc; --accent: #2f6fdf; --ok: #1f8a4c; --warn: #b26a00; --err: #c0392b;
-    --code: #f0f0ec;
+:root {
+  --bg: #E6EAF0;
+  --phone: #FFFFFF;
+  --surface: #F3F5F8;
+  --ink: #17233B;
+  --muted: #5F6B80;
+  --line: #D5DBE4;
+  --signal: #F2B705;
+  --signal-ink: #17233B;
+  --star: #D9480F;
+  --ok: #2B8A3E;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0E1420;
+    --phone: #18202F;
+    --surface: #212B3D;
+    --ink: #E9EDF4;
+    --muted: #9AA5B8;
+    --line: #2E3A50;
+    --signal: #F2B705;
+    --signal-ink: #17233B;
+    --star: #FF8A50;
+    --ok: #69DB7C;
+    color-scheme: dark;
   }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #161615; --panel: #1f1f1d; --text: #ececea; --muted: #a0a09a;
-      --line: #33332f; --accent: #6d9cf0; --ok: #4cc584; --warn: #e3a440; --err: #ef6a5b;
-      --code: #2a2a27;
-    }
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text);
-    font: 15px/1.55 system-ui, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif; }
-  main { max-width: 860px; margin: 0 auto; padding: 24px 16px 48px; }
-  h1 { font-size: 22px; margin: 0 0 4px; }
-  .sub { color: var(--muted); margin: 0 0 20px; }
-  section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
-    padding: 16px; margin-bottom: 16px; }
-  label { display: block; font-weight: 600; margin-bottom: 6px; }
-  input[type=password], input[type=text], textarea, select {
-    width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px;
-    background: var(--bg); color: var(--text); font: inherit; }
-  textarea { min-height: 130px; resize: vertical; }
-  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
-  .row > div { flex: 1 1 220px; }
-  .hint { color: var(--muted); font-size: 13px; margin-top: 6px; }
-  button { padding: 8px 14px; border-radius: 6px; border: 1px solid var(--line);
-    background: var(--panel); color: var(--text); font: inherit; cursor: pointer; }
-  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-  button:disabled { opacity: .5; cursor: default; }
-  .samples { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
-  .samples button { font-size: 13px; padding: 4px 10px; }
-  .actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
-  .result { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 12px; }
-  .result:first-child { border-top: 0; margin-top: 0; padding-top: 0; }
-  .result h3 { font-size: 15px; margin: 0 0 8px; }
-  .badge { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px;
-    border: 1px solid currentColor; margin-left: 6px; }
-  .ok { color: var(--ok); } .warn { color: var(--warn); } .err { color: var(--err); }
-  dl { display: grid; grid-template-columns: 110px 1fr; gap: 4px 12px; margin: 0; }
-  dt { color: var(--muted); } dd { margin: 0; overflow-wrap: anywhere; }
-  dd.flag { color: var(--warn); font-weight: 600; }
-  ul.notes { margin: 8px 0 0; padding-left: 18px; }
-  details { margin-top: 8px; }
-  pre { background: var(--code); padding: 10px; border-radius: 6px; overflow-x: auto;
-    font-size: 12.5px; margin: 6px 0 0; }
+}
+:root[data-theme="dark"] {
+  --bg: #0E1420; --phone: #18202F; --surface: #212B3D; --ink: #E9EDF4;
+  --muted: #9AA5B8; --line: #2E3A50; --signal: #F2B705; --signal-ink: #17233B;
+  --star: #FF8A50; --ok: #69DB7C; color-scheme: dark;
+}
+:root { box-sizing: border-box; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+*, *::before, *::after { box-sizing: inherit; }
+html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font-family: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  line-height: 1.5;
+}
+.wrap { max-width: 980px; margin: 0 auto; padding: 32px 20px; display: grid; gap: 32px; grid-template-columns: 1fr; }
+@media (min-width: 860px) { .wrap { grid-template-columns: 300px 1fr; align-items: start; } }
+.intro h1 { font-size: 1.6rem; margin: 0 0 8px; letter-spacing: -0.02em; }
+.intro p { color: var(--muted); margin: 0 0 16px; }
+.intro ol { margin: 0; padding-left: 1.2em; color: var(--muted); }
+.intro li { margin-bottom: 6px; }
+.intro li b { color: var(--ink); font-weight: 500; }
+
+/* 설정 */
+.settings { margin-top: 22px; background: var(--phone); border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
+.settings h2 { font-size: 0.95rem; margin: 0 0 10px; }
+.settings label { display: block; font-size: 0.8rem; color: var(--muted); margin: 10px 0 4px; }
+.settings label.inline { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+.settings input[type=password], .settings input[type=text] {
+  font: inherit; font-size: 0.9rem; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; width: 100%; }
+.settings .note { font-size: 0.75rem; color: var(--muted); margin: 10px 0 0; }
+.settings .danger { margin-top: 14px; width: 100%; }
+
+.phone {
+  width: 100%; max-width: 390px; margin: 0 auto; background: var(--phone);
+  border-radius: 36px; border: 1px solid var(--line); overflow: hidden;
+  display: flex; flex-direction: column; height: 760px; max-height: 88vh;
+}
+.screen { flex: 1; overflow-y: auto; padding: 22px 20px 16px; display: none; }
+.screen.active { display: block; }
+.screen h2 { font-size: 1.25rem; margin: 0 0 16px; letter-spacing: -0.01em; }
+
+/* 홈: 출발 보드 */
+.depart {
+  background: var(--signal); color: var(--signal-ink); border-radius: 20px; padding: 20px;
+}
+.depart .when { font-size: 0.9rem; font-weight: 500; }
+.depart .clock { font-size: 3.4rem; font-weight: 700; line-height: 1.05; letter-spacing: -0.03em; margin: 4px 0; font-variant-numeric: tabular-nums; }
+.depart .left { font-size: 1rem; font-weight: 500; }
+.depart .mins { margin-top: 10px; font-size: 0.85rem; display: flex; align-items: center; gap: 6px; }
+.depart .mins input { width: 64px; font: inherit; border: 1px solid rgba(23,35,59,.35); border-radius: 8px; padding: 4px 6px; background: rgba(255,255,255,.55); color: var(--signal-ink); }
+.brief { margin-top: 14px; padding: 16px; background: var(--surface); border-radius: 16px; }
+.brief p { margin: 0 0 6px; }
+.brief p:last-child { margin: 0; }
+.brief .meta { color: var(--muted); font-size: 0.85rem; }
+.section-title { font-size: 0.95rem; font-weight: 700; margin: 22px 0 10px; }
+.check { list-style: none; margin: 0; padding: 0; }
+.check li { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.check input { width: 18px; height: 18px; accent-color: var(--ink); }
+.check .auto { margin-left: auto; font-size: 0.75rem; color: var(--muted); }
+.empty { color: var(--muted); padding: 24px 4px; text-align: center; }
+.empty button { margin-top: 12px; }
+
+/* 업로드 */
+.drop {
+  border: 2px dashed var(--line); border-radius: 20px; padding: 28px 16px; text-align: center;
+}
+.drop.over { border-color: var(--signal); background: var(--surface); }
+.drop p { margin: 0 0 14px; color: var(--muted); }
+.drop .btns { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+button {
+  font: inherit; cursor: pointer; border: 0; border-radius: 12px; padding: 12px 18px;
+  background: var(--ink); color: var(--phone); font-weight: 500;
+}
+button:disabled { opacity: .45; cursor: default; }
+button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+button.mini { padding: 6px 10px; font-size: 0.8rem; border-radius: 8px; }
+button:focus-visible, input:focus-visible { outline: 3px solid var(--signal); outline-offset: 2px; }
+.steps { list-style: none; padding: 0; margin: 18px 0 0; }
+.steps li { display: flex; gap: 10px; padding: 8px 0; color: var(--muted); }
+.steps li.done { color: var(--ink); }
+.steps li.error { color: var(--star); }
+.steps li .dot { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--line); flex: none; margin-top: 2px; }
+.steps li.active .dot { border-color: var(--signal); }
+.steps li.done .dot { background: var(--ok); border-color: var(--ok); }
+.steps li.error .dot { background: var(--star); border-color: var(--star); }
+.steps li .detail { display: block; font-size: 0.8rem; color: var(--muted); }
+.steps li.error .detail { color: var(--star); }
+.readtext { margin-top: 8px; font-size: 0.85rem; }
+.readtext pre { white-space: pre-wrap; background: var(--surface); border-radius: 10px; padding: 10px; margin: 6px 0 0; font: inherit; font-size: 0.8rem; max-height: 180px; overflow-y: auto; }
+.result { display: none; margin-top: 18px; }
+.result.show { display: block; }
+.field { display: grid; grid-template-columns: 70px 1fr; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.field label { color: var(--muted); font-size: 0.85rem; }
+.field input { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; width: 100%; min-width: 0; }
+.field input.flag { border-color: var(--star); }
+.warn { margin: 12px 0; font-size: 0.85rem; color: var(--star); }
+.info { margin: 12px 0; font-size: 0.85rem; color: var(--muted); }
+.row { display: flex; gap: 8px; margin-top: 14px; }
+.row button { flex: 1; }
+
+/* 캘린더 */
+.calhead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.calhead h2 { margin: 0; }
+.calhead .nav2 { display: flex; gap: 6px; }
+.cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; font-size: 0.85rem; }
+.cal .dow { color: var(--muted); font-size: 0.75rem; padding: 4px 0; }
+.cal .d { padding: 8px 0 12px; border-radius: 10px; position: relative; font-variant-numeric: tabular-nums;
+  background: transparent; color: var(--ink); font-weight: 400; font-size: inherit; }
+.cal .d.empty { visibility: hidden; }
+.cal .d.today { outline: 1.5px solid var(--ink); }
+.cal .d.has::after { content: ""; position: absolute; left: 50%; bottom: 4px; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 50%; background: var(--ink); }
+.cal .d.sel { background: var(--signal); color: var(--signal-ink); }
+.cal .d.sel.has::after { background: var(--signal-ink); }
+.event { margin-top: 16px; border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; }
+.event h3 { margin: 0 0 4px; font-size: 1rem; }
+.event .sub { color: var(--muted); font-size: 0.85rem; margin: 0; }
+.event .go { margin-top: 10px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.event .go strong { font-size: 1.3rem; font-variant-numeric: tabular-nums; }
+.event .go .pending { font-size: 0.9rem; color: var(--muted); font-weight: 500; }
+.event .tools { margin-top: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.85rem; color: var(--muted); }
+.event .tools input { width: 60px; font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 4px 6px; }
+.event .tools .del { margin-left: auto; }
+.conflict { margin-top: 10px; font-size: 0.85rem; color: var(--star); }
+
+/* 문서함 */
+.tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
+.tabs button { padding: 7px 12px; font-size: 0.85rem; border-radius: 999px; background: var(--surface); color: var(--ink); flex: none; }
+.tabs button[aria-pressed="true"] { background: var(--ink); color: var(--phone); }
+.docs { list-style: none; padding: 0; margin: 14px 0 0; }
+.docs li { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.ftype { width: 42px; height: 42px; border-radius: 10px; display: grid; place-items: center; font-size: 0.7rem; font-weight: 700; background: var(--surface); flex: none; }
+.docs .t { font-weight: 500; }
+.docs .s { font-size: 0.8rem; color: var(--muted); }
+.docs .star { margin-left: auto; color: var(--star); font-size: 0.8rem; font-weight: 500; white-space: nowrap;
+  background: transparent; padding: 6px 4px; border-radius: 8px; }
+.docs .star[aria-pressed="false"] { color: var(--muted); font-weight: 400; }
+
+/* 하단 탭 */
+nav { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line); background: var(--phone); }
+nav button { background: transparent; color: var(--muted); border-radius: 0; padding: 14px 0 16px; font-size: 0.85rem; }
+nav button[aria-current="page"] { color: var(--ink); font-weight: 700; box-shadow: inset 0 3px 0 var(--signal); }
+@media (prefers-reduced-motion: no-preference) {
+  .steps li.done .dot { transition: background 0.3s; }
+  .steps li.active .dot { animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 50% { background: var(--signal); } }
+}
 </style>
 </head>
 <body>
-<main>
-  <h1>일정 추출 테스트</h1>
-  <p class="sub">OCR 텍스트를 Gemini에 보내 날짜·시간·장소·준비물을 뽑습니다. 결과는 코드에서 형식을 한 번 더 검사합니다.</p>
+<div class="wrap">
+  <section class="intro">
+    <h1>문서 일정 비서</h1>
+    <p>문서를 올리면 일정과 준비물을 찾아 캘린더에 넣고, 언제 출발해야 하는지 알려드려요.</p>
+    <ol>
+      <li><b>홈</b>: 다음 일정 출발 시간, 브리핑, 준비물</li>
+      <li><b>올리기</b>: 사진·PDF·한글(HWPX) 업로드부터 분석, 확인 화면까지</li>
+      <li><b>캘린더</b>: 자체 캘린더, 일정 카드, 충돌 경고</li>
+      <li><b>문서함</b>: 형식별 분류와 중요 문서</li>
+    </ol>
 
-  <section>
-    <div class="row">
-      <div>
-        <label for="key">Gemini API 키</label>
-        <input id="key" type="password" autocomplete="off" placeholder="AI Studio에서 발급한 키">
-        <div class="hint"><input id="remember" type="checkbox"> <label for="remember" style="display:inline;font-weight:400">이 브라우저에 저장 (공용 PC에서는 끄세요)</label></div>
-      </div>
-      <div style="flex:0 1 220px">
-        <label for="model">모델</label>
-        <input id="model" type="text" value="gemini-3.8-flash">
-      </div>
+    <div class="settings">
+      <h2>설정</h2>
+      <label for="key">Gemini API 키</label>
+      <input id="key" type="password" autocomplete="off" placeholder="AI Studio에서 발급한 키">
+      <label class="inline"><input id="remember" type="checkbox"> 이 브라우저에 키 저장</label>
+      <label for="ocrModel">글자 읽기 모델</label>
+      <input id="ocrModel" type="text" value="gemini-3.5-flash-lite">
+      <label for="extractModel">일정 찾기 모델</label>
+      <input id="extractModel" type="text" value="gemini-3.5-flash">
+      <p class="note">일정과 문서는 이 브라우저에만 저장돼요. 키를 넣은 채 이 페이지를 웹에 올리지 마세요.</p>
+      <button class="ghost mini danger" id="wipeBtn">저장된 일정·문서 모두 지우기</button>
     </div>
   </section>
 
-  <section>
-    <label for="ocr">OCR 텍스트</label>
-    <div class="samples" id="samples"></div>
-    <textarea id="ocr" placeholder="문서에서 읽은 텍스트를 붙여 넣거나 위 샘플을 고르세요"></textarea>
-    <div class="hint" id="today"></div>
-    <div class="actions">
-      <button class="primary" id="run">추출</button>
-      <button id="runAll">샘플 전체 실행</button>
-    </div>
-  </section>
+  <div class="phone" role="application" aria-label="문서 일정 비서">
+    <!-- 홈 -->
+    <section class="screen active" id="home" aria-label="홈">
+      <h2>안녕하세요</h2>
+      <div id="homeBody"></div>
+    </section>
 
-  <section id="out" hidden></section>
-</main>
+    <!-- 올리기 -->
+    <section class="screen" id="upload" aria-label="문서 올리기">
+      <h2>문서 올리기</h2>
+      <div class="drop" id="drop">
+        <p>사진, 이미지, 한글(HWPX), PDF 파일을 올리면<br>일정과 준비물을 찾아드려요.</p>
+        <div class="btns">
+          <button id="pickBtn">파일 고르기</button>
+          <button class="ghost" id="sampleBtn">예시 문서로 해 보기</button>
+        </div>
+        <input id="file" type="file" hidden accept="image/*,.heic,.heif,.pdf,.hwpx,.hwp">
+      </div>
+      <ol class="steps" id="steps">
+        <li data-step="type"><span class="dot"></span><span>파일 형식 확인<span class="detail"></span></span></li>
+        <li data-step="read"><span class="dot"></span><span>글자 읽기<span class="detail"></span></span></li>
+        <li data-step="find"><span class="dot"></span><span>날짜·장소·준비물 찾기<span class="detail"></span></span></li>
+        <li data-step="rank"><span class="dot"></span><span>중요도 판단<span class="detail"></span></span></li>
+      </ol>
+      <div id="readText"></div>
+      <div class="result" id="result">
+        <div class="section-title" id="resultTitle">이 내용이 맞나요?</div>
+        <div id="fields">
+          <div class="field"><label for="f_title">제목</label><input id="f_title"></div>
+          <div class="field"><label for="f_date">날짜</label><input id="f_date" type="date"></div>
+          <div class="field"><label for="f_time">시간</label><input id="f_time" type="time"></div>
+          <div class="field"><label for="f_place">장소</label><input id="f_place"></div>
+          <div class="field"><label for="f_address">주소</label><input id="f_address"></div>
+          <div class="field"><label for="f_checklist">준비물</label><input id="f_checklist" placeholder="쉼표로 구분"></div>
+          <div class="field"><label for="f_deadline">마감</label><input id="f_deadline" type="date"></div>
+          <div class="field"><label for="f_minutes">이동 시간</label><input id="f_minutes" type="number" min="0" max="600" placeholder="분 (출발 시간 계산용)"></div>
+        </div>
+        <div id="resultNotes"></div>
+        <div class="row">
+          <button class="ghost" id="resetBtn">다시 올리기</button>
+          <button id="saveBtn">캘린더에 저장</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 캘린더 -->
+    <section class="screen" id="calendar" aria-label="캘린더">
+      <div class="calhead">
+        <h2 id="calTitle"></h2>
+        <div class="nav2">
+          <button class="ghost mini" id="prevMonth" aria-label="이전 달">‹</button>
+          <button class="ghost mini" id="nextMonth" aria-label="다음 달">›</button>
+        </div>
+      </div>
+      <div class="cal" id="cal"></div>
+      <div id="dayEvents"></div>
+    </section>
+
+    <!-- 문서함 -->
+    <section class="screen" id="docs" aria-label="문서함">
+      <h2>문서함</h2>
+      <div class="tabs" role="group" aria-label="문서 형식">
+        <button aria-pressed="true" data-f="all">전체</button>
+        <button aria-pressed="false" data-f="star">중요</button>
+        <button aria-pressed="false" data-f="image">이미지</button>
+        <button aria-pressed="false" data-f="hwpx">한글</button>
+        <button aria-pressed="false" data-f="pdf">PDF</button>
+      </div>
+      <ul class="docs" id="docList"></ul>
+    </section>
+
+    <nav aria-label="하단 메뉴">
+      <button data-go="home" aria-current="page">홈</button>
+      <button data-go="upload">올리기</button>
+      <button data-go="calendar">캘린더</button>
+      <button data-go="docs">문서함</button>
+    </nav>
+  </div>
+</div>
 
 <script>
 /* CORE START — DOM을 쓰지 않는 부분 (node 테스트에서도 그대로 씀) */
@@ -107,6 +309,12 @@ const SYSTEM_PROMPT = `너는 문서에서 일정 정보를 추출한다. <ocr_t
 - place에는 장소 이름, place_address에는 문서에 적힌 주소를 넣는다(없으면 null).
 - title은 20자 이내, summary는 3줄 이내로 쓴다.
 - OCR 오류로 확신할 수 없는 필드는 이름을 uncertain_fields에 넣는다.`;
+
+const OCR_PROMPT = `이미지 속 문서의 글자를 보이는 그대로 옮겨 적어라.
+- 설명, 요약, 번역, 머리말 없이 원문 텍스트만 출력한다.
+- 줄바꿈과 순서는 원문을 따른다. 표는 한 행을 한 줄로, 칸은 " | "로 구분한다.
+- 이미지가 여러 장이면 순서대로 이어서 적는다.
+- 글자가 없으면 아무것도 출력하지 않는다.`;
 
 const FIELDS = ["has_schedule", "title", "date", "time", "place", "place_address", "checklist",
   "category", "deadline", "deadline_time", "summary", "uncertain_fields"];
@@ -138,7 +346,7 @@ const SAMPLES = {
 
 function todayLine(now = new Date()) {
   const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit", weekday: "short",
+    timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit",
   }).formatToParts(now).map(p => [p.type, p.value]));
   const ymd = `${parts.year}-${parts.month}-${parts.day}`;
   const wd = WEEKDAYS[new Date(`${ymd}T00:00:00Z`).getUTCDay()];
@@ -153,7 +361,114 @@ class ExtractError extends Error {
   constructor(message, kind) { super(message); this.kind = kind; }
 }
 
-async function callGemini({ apiKey, model, ocrText, now, fetchFn = fetch, timeoutMs = 120000 }) {
+/* ---------- 파일 분류 ---------- */
+
+// 확장자 → 기대하는 실제 형식
+const EXT_KIND = {
+  jpg: "jpeg", jpeg: "jpeg", png: "png", gif: "gif", webp: "webp", bmp: "bmp",
+  heic: "heic", heif: "heic", pdf: "pdf", hwpx: "zip", hwp: "ole",
+};
+const KIND_INFO = {
+  jpeg: { label: "JPG 이미지", fileType: "image", mime: "image/jpeg" },
+  png:  { label: "PNG 이미지", fileType: "image", mime: "image/png" },
+  gif:  { label: "GIF 이미지", fileType: "image", mime: "image/gif" },
+  webp: { label: "WEBP 이미지", fileType: "image", mime: "image/webp" },
+  bmp:  { label: "BMP 이미지", fileType: "image", mime: "image/bmp" },
+  heic: { label: "HEIC 이미지", fileType: "image", mime: "image/heic" },
+  pdf:  { label: "PDF", fileType: "pdf", mime: "application/pdf" },
+  zip:  { label: "ZIP 압축 파일", fileType: null, mime: "application/zip" },
+  ole:  { label: "OLE 복합 문서(HWP·구형 오피스)", fileType: null, mime: "application/x-ole-storage" },
+  unknown: { label: "알 수 없는 형식", fileType: null, mime: "application/octet-stream" },
+};
+
+// 파일 앞부분(매직 넘버)으로 실제 형식을 판별하고, 확장자와 다르면 경고를 남긴다.
+function detectType(head, filename = "") {
+  const at = (sig, off = 0) => sig.length + off <= head.length &&
+    sig.every((b, i) => head[off + i] === (typeof b === "string" ? b.charCodeAt(0) : b));
+  const str = (s, off = 0) => at([...s], off);
+
+  let kind = "unknown";
+  if (at([0xFF, 0xD8, 0xFF])) kind = "jpeg";
+  else if (at([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])) kind = "png";
+  else if (str("GIF8")) kind = "gif";
+  else if (str("RIFF") && str("WEBP", 8)) kind = "webp";
+  else if (str("BM")) kind = "bmp";
+  else if (str("ftyp", 4) && ["heic", "heix", "hevc", "mif1", "msf1", "heif"].some(b => str(b, 8))) kind = "heic";
+  else if (str("%PDF")) kind = "pdf";
+  else if (at([0x50, 0x4B, 0x03, 0x04])) kind = "zip";
+  else if (at([0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1])) kind = "ole";
+
+  const dot = filename.lastIndexOf(".");
+  const ext = dot >= 0 ? filename.slice(dot + 1).toLowerCase() : "";
+  const warnings = [];
+  const expected = EXT_KIND[ext];
+  if (ext && expected && expected !== kind && kind !== "unknown") {
+    warnings.push(`확장자는 .${ext}인데 실제 내용은 ${KIND_INFO[kind].label}입니다. 실제 형식으로 처리합니다.`);
+  } else if (kind === "unknown") {
+    warnings.push(`파일 앞부분으로 형식을 알 수 없습니다${ext ? ` (.${ext})` : ""}.`);
+  }
+  return { kind, ext, warnings, ...KIND_INFO[kind] };
+}
+
+// HWPX 본문 XML(Contents/sectionN.xml)에서 글자만 뽑는다. 문단(p)마다 줄을 바꾼다.
+function hwpxXmlToText(xml, DOMParserImpl = globalThis.DOMParser) {
+  const doc = new DOMParserImpl().parseFromString(xml, "application/xml");
+  let out = "";
+  const walk = (node, inT) => {
+    const kids = node.childNodes;
+    for (let i = 0; i < kids.length; i++) {
+      const c = kids[i];
+      if (c.nodeType === 3) { if (inT) out += c.nodeValue; continue; }
+      if (c.nodeType !== 1) continue;
+      const n = c.localName;
+      if (n === "tab") out += "\t";
+      else if (n === "lineBreak") out += "\n";
+      else if (n === "t") walk(c, true);
+      else { walk(c, inT); if (n === "p") out += "\n"; }
+    }
+  };
+  walk(doc, false);
+  return out.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+// zip: JSZip 인스턴스. HWPX가 맞는지 확인하고 본문 글자를 섹션 순서대로 이어 붙인다.
+async function hwpxText(zip, DOMParserImpl) {
+  const mt = zip.file("mimetype");
+  const mimetype = mt ? (await mt.async("string")).trim() : "";
+  if (mimetype !== "application/hwp+zip") return { isHwpx: false, mimetype };
+  const sections = Object.keys(zip.files)
+    .map(name => [name, name.match(/^Contents\/section(\d+)\.xml$/i)])
+    .filter(([, m]) => m)
+    .sort((a, b) => a[1][1] - b[1][1])
+    .map(([name]) => name);
+  const parts = [];
+  for (const name of sections) parts.push(hwpxXmlToText(await zip.file(name).async("string"), DOMParserImpl));
+  return { isHwpx: true, mimetype, sections: sections.length, text: parts.join("\n\n").trim() };
+}
+
+// pdfjs: pdf.js 라이브러리. 텍스트 레이어를 읽고, 글자가 거의 없으면 스캔본으로 본다.
+async function pdfText(pdfjs, bytes, docOptions = {}) {
+  let doc;
+  try {
+    doc = await pdfjs.getDocument({ data: bytes, ...docOptions }).promise;
+  } catch (e) {
+    if (e?.name === "PasswordException") throw new ExtractError("암호가 걸린 PDF는 열 수 없습니다.", "file");
+    throw new ExtractError(`PDF를 열 수 없습니다: ${e?.message || e}`, "file");
+  }
+  const pages = [];
+  for (let i = 1; i <= doc.numPages; i++) {
+    const tc = await (await doc.getPage(i)).getTextContent();
+    pages.push(tc.items.map(it => (it.str ?? "") + (it.hasEOL ? "\n" : "")).join(""));
+  }
+  const text = pages.join("\n\n").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+  const meaningful = text.replace(/\s/g, "").length;
+  const scanned = meaningful < 30 * doc.numPages;
+  return { doc, numPages: doc.numPages, text, scanned };
+}
+
+/* ---------- Gemini 호출 ---------- */
+
+async function geminiRequest({ apiKey, model, body, fetchFn = fetch, timeoutMs = 120000 }) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
   let res;
   try {
@@ -161,39 +476,79 @@ async function callGemini({ apiKey, model, ocrText, now, fetchFn = fetch, timeou
       method: "POST",
       signal: AbortSignal.timeout(timeoutMs),
       headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-        contents: [{ role: "user", parts: [{ text: userContent(ocrText, now) }] }],
-        generationConfig: {
-          temperature: 0,
-          responseMimeType: "application/json",
-          responseSchema: RESPONSE_SCHEMA,
-        },
-      }),
+      body: JSON.stringify(body),
     });
   } catch (e) {
     if (e.name === "TimeoutError")
       throw new ExtractError(`응답 시간 초과(${timeoutMs / 1000}초). 다시 시도하거나 더 가벼운 모델을 쓰세요.`, "timeout");
     throw new ExtractError(`네트워크 오류: ${e.message}`, "network");
   }
-  const body = await res.json().catch(() => ({}));
+  const json = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const msg = body.error?.message || res.statusText;
+    const msg = json.error?.message || res.statusText;
     if (res.status === 429) throw new ExtractError(`무료 한도 초과(429). 잠시 후 다시 시도하세요. ${msg}`, "quota");
     if (res.status === 404) throw new ExtractError(`모델을 찾을 수 없음(404): ${model}`, "model");
     if (res.status === 400 || res.status === 401 || res.status === 403)
       throw new ExtractError(`요청 거부(${res.status}): ${msg}`, "auth");
     throw new ExtractError(`서버 오류(${res.status}): ${msg}`, "server");
   }
-  if (body.promptFeedback?.blockReason)
-    throw new ExtractError(`입력이 차단됨: ${body.promptFeedback.blockReason}`, "blocked");
-  const cand = body.candidates?.[0];
-  const text = cand?.content?.parts?.map(p => p.text || "").join("") || "";
-  if (!text) throw new ExtractError(`빈 응답 (finishReason: ${cand?.finishReason || "없음"})`, "empty");
+  if (json.promptFeedback?.blockReason)
+    throw new ExtractError(`입력이 차단됨: ${json.promptFeedback.blockReason}`, "blocked");
+  const cand = json.candidates?.[0];
+  const text = cand?.content?.parts?.filter(p => !p.thought).map(p => p.text || "").join("") || "";
+  return { text, finishReason: cand?.finishReason };
+}
+
+// 503 같은 일시적인 서버 오류는 3초, 9초 기다렸다가 두 번까지 다시 시도한다.
+async function withRetry(fn, { retryWaitsMs = [3000, 9000], onRetry } = {}) {
+  for (let attempt = 0; ; attempt++) {
+    try { return await fn(); }
+    catch (e) {
+      if (e.kind !== "server" || attempt >= retryWaitsMs.length) throw e;
+      onRetry?.(attempt + 1, e);
+      await new Promise(r => setTimeout(r, retryWaitsMs[attempt]));
+    }
+  }
+}
+
+// images: [{ mimeType, data(base64) }] → 글자
+async function ocrImages(opts) {
+  const { images } = opts;
+  return withRetry(async () => {
+    const { text, finishReason } = await geminiRequest({
+      ...opts,
+      body: {
+        contents: [{ role: "user", parts: [
+          ...images.map(img => ({ inlineData: { mimeType: img.mimeType, data: img.data } })),
+          { text: OCR_PROMPT },
+        ] }],
+        generationConfig: { temperature: 0 },
+      },
+    });
+    if (!text.trim() && finishReason && finishReason !== "STOP")
+      throw new ExtractError(`글자 읽기 실패 (finishReason: ${finishReason})`, "empty");
+    return text.trim();
+  }, opts);
+}
+
+async function callGemini(opts) {
+  const { text, finishReason } = await geminiRequest({
+    ...opts,
+    body: {
+      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      contents: [{ role: "user", parts: [{ text: userContent(opts.ocrText, opts.now) }] }],
+      generationConfig: {
+        temperature: 0,
+        responseMimeType: "application/json",
+        responseSchema: RESPONSE_SCHEMA,
+      },
+    },
+  });
+  if (!text) throw new ExtractError(`빈 응답 (finishReason: ${finishReason || "없음"})`, "empty");
   try {
     return JSON.parse(text);
   } catch {
-    throw new ExtractError(`JSON 파싱 실패 (finishReason: ${cand?.finishReason})`, "parse");
+    throw new ExtractError(`JSON 파싱 실패 (finishReason: ${finishReason})`, "parse");
   }
 }
 
@@ -244,121 +599,604 @@ function validate(raw) {
 }
 
 async function extract(opts) {
-  // 503 같은 일시적인 서버 오류는 3초, 9초 기다렸다가 두 번까지 다시 시도한다.
-  const waits = opts.retryWaitsMs ?? [3000, 9000];
-  for (let attempt = 0; ; attempt++) {
-    try {
-      const raw = await callGemini(opts);
-      return { raw, ...validate(raw) };
-    } catch (e) {
-      if (e.kind !== "server" || attempt >= waits.length) throw e;
-      opts.onRetry?.(attempt + 1, e);
-      await new Promise(r => setTimeout(r, waits[attempt]));
+  return withRetry(async () => {
+    const raw = await callGemini(opts);
+    return { raw, ...validate(raw) };
+  }, opts);
+}
+
+/* ---------- 일정 계산 (출발 시간, D-day, 충돌, 중요도) ---------- */
+
+function kstYmd(now = new Date()) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(now).map(x => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day}`;
+}
+const toMin = hhmm => { const [h, m] = hhmm.split(":").map(Number); return h * 60 + m; };
+const fromMin = mins => `${String(Math.floor(mins / 60)).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}`;
+const kstMs = (date, time = "00:00") => Date.parse(`${date}T${time}:00+09:00`);
+
+// 도착 시간에서 이동 시간을 빼서 출발 시간을 구한다. 자정을 넘으면 전날로 표시한다.
+function departAt(time, minutes) {
+  if (!time || !TIME_RE.test(time) || !(minutes > 0)) return null;
+  const d = toMin(time) - minutes;
+  return d >= 0 ? { time: fromMin(d), prevDay: false } : { time: fromMin(d + 1440), prevDay: true };
+}
+
+function dday(target, today) {
+  if (!target) return null;
+  const diff = Math.round((Date.parse(`${target}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86400000);
+  if (diff < 0) return null;
+  return diff === 0 ? "D-day" : `D-${diff}`;
+}
+
+const IMPORTANT_WORDS = ["제출", "마감", "필수", "계약", "증명서"];
+function judgeImportance({ deadline, text = "", title = "" }) {
+  const reasons = [];
+  if (deadline) reasons.push("제출 기한이 있음");
+  const words = IMPORTANT_WORDS.filter(w => text.includes(w) || title.includes(w));
+  if (words.length) reasons.push(`"${words.join("·")}" 단어가 있음`);
+  return { important: reasons.length > 0, reasons };
+}
+
+// 같은 날 일정끼리 시간이 겹치거나, 앞 일정이 끝난 뒤 이동 시간이 모자라면 경고한다.
+// 일정이 끝나는 시간은 문서에 없으므로 1시간으로 가정한다.
+const ASSUMED_DURATION = 60;
+function conflictsFor(events) {
+  const timed = events.filter(e => e.time).sort((a, b) => a.time.localeCompare(b.time));
+  const out = {};
+  for (let i = 1; i < timed.length; i++) {
+    const prev = timed[i - 1], cur = timed[i];
+    const prevEnd = toMin(prev.time) + ASSUMED_DURATION;
+    if (cur.time === prev.time) { out[cur.id] = `"${prev.title}"과 같은 시간에 시작해요.`; continue; }
+    const dep = departAt(cur.time, cur.travel?.minutes);
+    const leave = dep && !dep.prevDay ? toMin(dep.time) : toMin(cur.time);
+    if (leave < prevEnd) {
+      out[cur.id] = `앞 일정이 ${fromMin(prevEnd)}에 끝나면 ${dep ? "이동 시간이" : "시간이"} ${prevEnd - leave}분 부족해요.`;
     }
   }
+  return out;
 }
 /* CORE END */
 
-// ---------- 화면 ----------
-const $ = id => document.getElementById(id);
-const store = {
+// ---------- 브라우저 전용: 라이브러리 로드, 이미지 처리 ----------
+const LIBS = {
+  jszip: "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js",
+  pdfjs: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js",
+  pdfWorker: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js",
+};
+const PDF_DOC_OPTIONS = {
+  cMapUrl: "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/",
+  cMapPacked: true,
+  standardFontDataUrl: "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/standard_fonts/",
+};
+const loaded = {};
+function loadScript(url) {
+  return loaded[url] ??= new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = url;
+    s.onload = resolve;
+    s.onerror = () => { delete loaded[url]; reject(new ExtractError(`라이브러리를 불러오지 못했어요(인터넷 연결 확인): ${url}`, "network")); };
+    document.head.append(s);
+  });
+}
+async function getJSZip() { await loadScript(LIBS.jszip); return window.JSZip; }
+async function getPdfjs() {
+  // 워커 스크립트를 먼저 올려 두면 file:// 에서도 별도 워커 없이 동작한다.
+  await loadScript(LIBS.pdfWorker);
+  await loadScript(LIBS.pdfjs);
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc = LIBS.pdfWorker;
+  return window.pdfjsLib;
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).split(",")[1]);
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(blob);
+  });
+}
+function canvasToJpeg(canvas) {
+  return new Promise(res => canvas.toBlob(res, "image/jpeg", 0.9));
+}
+// 큰 사진은 긴 변 2000px로 줄여 JPEG로 보낸다. 브라우저가 못 여는 형식(HEIC 등)은 원본 그대로 보낸다.
+async function imageForGemini(file, info) {
+  try {
+    const bmp = await createImageBitmap(file);
+    const scale = Math.min(1, 2000 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement("canvas");
+    c.width = Math.round(bmp.width * scale); c.height = Math.round(bmp.height * scale);
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
+    ctx.drawImage(bmp, 0, 0, c.width, c.height);
+    return { mimeType: "image/jpeg", data: await blobToBase64(await canvasToJpeg(c)) };
+  } catch {
+    if (file.size > 15 * 1024 * 1024) throw new ExtractError("브라우저가 열 수 없는 이미지이고 15MB를 넘어서 보낼 수 없어요.", "file");
+    return { mimeType: info.mime, data: await blobToBase64(file) };
+  }
+}
+// 스캔본 PDF는 앞 3쪽까지 이미지로 그려서 OCR한다.
+async function pdfPagesAsImages(doc, maxPages = 3) {
+  const images = [];
+  for (let i = 1; i <= Math.min(doc.numPages, maxPages); i++) {
+    const page = await doc.getPage(i);
+    const base = page.getViewport({ scale: 1 });
+    const viewport = page.getViewport({ scale: Math.min(3, 1600 / base.width) });
+    const c = document.createElement("canvas");
+    c.width = Math.ceil(viewport.width); c.height = Math.ceil(viewport.height);
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    images.push({ mimeType: "image/jpeg", data: await blobToBase64(await canvasToJpeg(c)) });
+  }
+  return images;
+}
+
+// 파일 → 형식 판별 → 형식별 텍스트 추출.
+// hooks.typed(info): 형식을 알아냈을 때, hooks.reading(msg): 글자 읽기 진행 상황
+async function fileToText(file, gemini, hooks = {}) {
+  const head = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+  const info = detectType(head, file.name);
+  hooks.typed?.(info);
+  const out = { info, fileType: info.fileType, method: null, text: "", warnings: [...info.warnings] };
+
+  if (info.kind === "zip") {
+    const JSZip = await getJSZip();
+    let zip;
+    try { zip = await JSZip.loadAsync(file); }
+    catch (e) { throw new ExtractError(`압축을 풀 수 없어요: ${e.message}`, "file"); }
+    const h = await hwpxText(zip);
+    if (!h.isHwpx) throw new ExtractError("HWPX가 아닌 압축 파일이에요. 워드·엑셀 같은 오피스 파일은 아직 지원하지 않아요.", "unsupported");
+    out.fileType = "hwpx";
+    out.method = "한글 파일에서 바로 읽음";
+    out.text = h.text;
+  } else if (info.kind === "ole") {
+    throw new ExtractError(info.ext === "hwp"
+      ? "HWP(구형 한글) 파일은 아직 지원하지 않아요. 한글에서 HWPX나 PDF로 저장해서 올려 주세요."
+      : "구형 오피스 문서는 지원하지 않아요.", "unsupported");
+  } else if (info.kind === "pdf") {
+    hooks.reading?.("PDF 여는 중…");
+    const pdfjs = await getPdfjs();
+    const p = await pdfText(pdfjs, new Uint8Array(await file.arrayBuffer()), PDF_DOC_OPTIONS);
+    if (!p.scanned) {
+      out.method = `PDF 글자 바로 읽음 (${p.numPages}쪽)`;
+      out.text = p.text;
+    } else {
+      const n = Math.min(p.numPages, 3);
+      hooks.reading?.(`스캔본 PDF예요. 앞 ${n}쪽을 OCR하는 중…`);
+      if (p.numPages > 3) out.warnings.push(`스캔본 PDF는 앞 3쪽만 읽었어요 (전체 ${p.numPages}쪽).`);
+      out.text = await ocrImages({ ...gemini, images: await pdfPagesAsImages(p.doc, 3) });
+      out.method = `스캔본 PDF ${n}쪽 OCR`;
+    }
+  } else if (info.fileType === "image") {
+    hooks.reading?.("OCR 중…");
+    out.text = await ocrImages({ ...gemini, images: [await imageForGemini(file, info)] });
+    out.method = "사진 OCR";
+  } else {
+    throw new ExtractError("지원하지 않는 형식이에요. 사진, PDF, HWPX만 올릴 수 있어요.", "unsupported");
+  }
+  if (!out.text.trim()) throw new ExtractError("문서에서 글자를 찾지 못했어요. 더 선명한 사진이나 다른 파일로 해 보세요.", "empty");
+  return out;
+}
+
+// ---------- 저장소 ----------
+const STORE_KEY = "doc-schedule-v1";
+const safeStorage = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
-  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+  set(k, v) { try { localStorage.setItem(k, v); return true; } catch { return false; } },
   del(k) { try { localStorage.removeItem(k); } catch {} },
 };
-
-const saved = store.get("gemini_key");
-if (saved) { $("key").value = saved; $("remember").checked = true; }
-$("today").textContent = `기준 날짜: ${todayLine()}`;
-
-for (const [name, text] of Object.entries(SAMPLES)) {
-  const b = document.createElement("button");
-  b.textContent = name;
-  b.onclick = () => { $("ocr").value = text; };
-  $("samples").append(b);
+// 데이터 구조는 기획서 4장을 따른다. weather·alerts·lat/lng는 다음 단계에서 채울 자리.
+let db = { events: [], docs: [] };
+try { db = { events: [], docs: [], ...JSON.parse(safeStorage.get(STORE_KEY) || "{}") }; } catch {}
+function persist() {
+  if (!safeStorage.set(STORE_KEY, JSON.stringify(db))) console.warn("저장 공간에 쓰지 못했어요. 새로고침하면 사라질 수 있어요.");
 }
+const uid = p => `${p}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
-function el(tag, attrs = {}, ...children) {
+// ---------- 화면 공통 ----------
+const $ = id => document.getElementById(id);
+function h(tag, attrs = {}, ...kids) {
   const e = document.createElement(tag);
-  Object.assign(e, attrs);
-  e.append(...children);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v == null || v === false) continue;
+    if (k === "class") e.className = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else if (k in e && typeof v !== "string") e[k] = v;
+    else e.setAttribute(k, v === true ? "" : v);
+  }
+  e.append(...kids.flat().filter(k => k != null && k !== false));
   return e;
 }
-
-function renderResult(name, out) {
-  const box = el("div", { className: "result" });
-  const h = el("h3", {}, name);
-  if (out.error) {
-    h.append(el("span", { className: "badge err" }, "실패"));
-    box.append(h, el("div", { className: "err" }, out.error.message));
-    return box;
-  }
-  const { result: r, notes, addToCalendar, raw } = out;
-  h.append(addToCalendar
-    ? el("span", { className: "badge ok" }, "캘린더에 추가")
-    : el("span", { className: "badge warn" }, "일정 없음 · 추가 안 함"));
-  if (r.uncertain_fields.length) h.append(el("span", { className: "badge warn" }, "확인 필요"));
-  box.append(h);
-
-  const dl = el("dl");
-  const show = (label, key, val) => {
-    const flag = r.uncertain_fields.includes(key);
-    dl.append(el("dt", {}, label), el("dd", { className: flag ? "flag" : "" },
-      (val ?? "—") + (flag ? "  (확인 필요)" : "")));
-  };
-  show("제목", "title", r.title);
-  show("날짜", "date", r.date);
-  show("시간", "time", r.time);
-  show("장소", "place", r.place);
-  show("주소", "place_address", r.place_address);
-  show("준비물", "checklist", r.checklist.length ? r.checklist.join(", ") : null);
-  show("분류", "category", r.category);
-  show("마감", "deadline", [r.deadline, r.deadline_time].filter(Boolean).join(" ") || null);
-  show("요약", "summary", r.summary);
-  box.append(dl);
-
-  if (notes.length) box.append(el("ul", { className: "notes warn" }, ...notes.map(n => el("li", {}, n))));
-  const d = el("details", {}, el("summary", {}, "모델 원본 응답"),
-    el("pre", {}, JSON.stringify(raw, null, 2)));
-  box.append(d);
-  return box;
-}
-
-async function runMany(items) {
-  const apiKey = $("key").value.trim();
-  const model = $("model").value.trim();
-  if (!apiKey) { alertBox("API 키를 입력하세요."); return; }
-  if ($("remember").checked) store.set("gemini_key", apiKey); else store.del("gemini_key");
-
-  $("run").disabled = $("runAll").disabled = true;
-  const out = $("out");
-  out.hidden = false;
-  out.replaceChildren();
-  for (const [name, text] of items) {
-    const pending = el("div", { className: "result" }, el("h3", {}, name), el("div", { className: "hint" }, "추출 중…"));
-    out.append(pending);
-    let res;
-    const onRetry = n => { pending.lastChild.textContent = `서버가 붐벼서 다시 시도 중… (${n}/2)`; };
-    try { res = await extract({ apiKey, model, ocrText: text, onRetry }); }
-    catch (e) { res = { error: e }; }
-    pending.replaceWith(renderResult(name, res));
-    if (res.error && ["quota", "model", "auth"].includes(res.error.kind)) break;
-  }
-  $("run").disabled = $("runAll").disabled = false;
-}
-
-function alertBox(msg) {
-  const out = $("out");
-  out.hidden = false;
-  out.replaceChildren(el("div", { className: "err" }, msg));
-}
-
-$("run").onclick = () => {
-  const text = $("ocr").value.trim();
-  if (!text) { alertBox("OCR 텍스트를 입력하세요."); return; }
-  runMany([["입력한 텍스트", text]]);
+const TODAY = () => kstYmd();
+const fmtKDate = ymd => {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return `${m}월 ${d}일 ${WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]}요일`;
 };
-$("runAll").onclick = () => runMany(Object.entries(SAMPLES));
+const fmtKTime = t => { const [hh, mm] = t.split(":").map(Number); return mm ? `${hh}시 ${mm}분` : `${hh}시`; };
+const FT_LABEL = { image: "IMG", pdf: "PDF", hwpx: "HWPX" };
+const FT_FROM = { image: "사진에서 읽음", pdf: "PDF", hwpx: "한글 파일", text: "직접 입력" };
+
+const navBtns = document.querySelectorAll("nav button");
+function go(id) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.toggle("active", s.id === id));
+  navBtns.forEach(b => b.dataset.go === id ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
+  renderAll();
+}
+navBtns.forEach(b => b.addEventListener("click", () => go(b.dataset.go)));
+
+function setMinutes(ev, value) {
+  const n = parseInt(value, 10);
+  ev.travel = { ...(ev.travel || {}), mode: "manual", minutes: n > 0 ? Math.min(n, 600) : null };
+  persist();
+  renderAll();
+}
+
+// ---------- 홈 ----------
+function nextEvent() {
+  const now = Date.now();
+  return db.events
+    .filter(e => e.date && kstMs(e.date, e.time || "23:59") >= now)
+    .sort((a, b) => kstMs(a.date, a.time || "23:59") - kstMs(b.date, b.time || "23:59"))[0];
+}
+function renderHome() {
+  const body = $("homeBody");
+  const ev = nextEvent();
+  if (!ev) {
+    body.replaceChildren(h("div", { class: "empty" },
+      h("p", {}, "다가오는 일정이 없어요."),
+      h("p", {}, "문서를 올리면 일정과 출발 시간을 알려드려요."),
+      h("button", { onclick: () => go("upload") }, "문서 올리기")));
+    return;
+  }
+  const doc = db.docs.find(d => d.id === ev.document_id);
+  const dep = departAt(ev.time, ev.travel?.minutes);
+  let clock, left;
+  if (dep) {
+    clock = `${dep.time} 출발`;
+    const leaveMs = kstMs(ev.date, dep.time) - (dep.prevDay ? 86400000 : 0);
+    const mins = Math.round((leaveMs - Date.now()) / 60000);
+    const remain = mins <= 0 ? "지금 출발해야 해요"
+      : mins < 60 ? `출발까지 ${mins}분 남음`
+      : mins < 1440 ? `출발까지 ${Math.floor(mins / 60)}시간 ${mins % 60}분 남음`
+      : `출발까지 ${Math.floor(mins / 1440)}일 남음`;
+    left = `이동 ${ev.travel.minutes}분${dep.prevDay ? " · 전날 출발" : ""} · ${remain}`;
+  } else if (ev.time) {
+    clock = `${ev.time} 시작`;
+    left = "이동 시간을 넣으면 출발 시간을 알려드려요";
+  } else {
+    clock = "시간 미정";
+    left = "확인 화면이나 캘린더에서 시간을 넣어 주세요";
+  }
+  const minsInput = h("input", { type: "number", min: "0", max: "600", value: ev.travel?.minutes ?? "",
+    "aria-label": "이동 시간(분)", onchange: e => setMinutes(ev, e.target.value) });
+
+  const brief = h("div", { class: "brief" },
+    h("p", {}, `${fmtKDate(ev.date)}${ev.time ? ` ${fmtKTime(ev.time)}` : ""}${ev.place?.name ? `, ${ev.place.name}` : ""}.`),
+    ev.place?.address ? h("p", { class: "meta" }, ev.place.address) : null,
+    doc?.deadline ? h("p", {}, `제출 기한: ${doc.deadline}${doc.deadline_time ? ` ${doc.deadline_time}` : ""}`) : null);
+
+  const checklist = ev.checklist?.length
+    ? h("ul", { class: "check" }, ev.checklist.map((item, i) => {
+        const id = `chk_${ev.id}_${i}`;
+        return h("li", {},
+          h("input", { type: "checkbox", id, checked: item.done, onchange: e => { item.done = e.target.checked; persist(); } }),
+          h("label", { for: id }, item.text));
+      }))
+    : h("p", { class: "meta", style: "color:var(--muted);margin:0" }, "문서에 적힌 준비물이 없어요.");
+
+  body.replaceChildren(
+    h("div", { class: "depart" },
+      h("div", { class: "when" }, `${ev.title}까지`),
+      h("div", { class: "clock" }, clock),
+      h("div", { class: "left" }, left),
+      ev.time ? h("label", { class: "mins" }, "이동", minsInput, "분") : null),
+    brief,
+    h("div", { class: "section-title" }, "준비물"),
+    checklist,
+    doc?.summary ? h("div", { class: "section-title" }, "문서 요약") : null,
+    doc?.summary ? h("div", { class: "brief" }, doc.summary.split("\n").filter(Boolean).map(l => h("p", {}, l))) : null);
+}
+
+// ---------- 올리기 ----------
+let pending = null; // { fileName, fileType, method, text, result, notes, importance }
+const stepEls = Object.fromEntries([...document.querySelectorAll("#steps li")].map(li => [li.dataset.step, li]));
+function setStep(name, state, detail = "") {
+  const li = stepEls[name];
+  li.classList.remove("active", "done", "error");
+  if (state) li.classList.add(state);
+  li.querySelector(".detail").textContent = detail;
+}
+function resetUpload() {
+  pending = null;
+  Object.keys(stepEls).forEach(k => setStep(k, null));
+  $("result").classList.remove("show");
+  $("readText").replaceChildren();
+  $("resultNotes").replaceChildren();
+}
+function settings() {
+  const apiKey = $("key").value.trim();
+  if ($("remember").checked && apiKey) safeStorage.set("gemini_key", apiKey);
+  else if (!$("remember").checked) safeStorage.del("gemini_key");
+  return {
+    apiKey,
+    ocr: { apiKey, model: $("ocrModel").value.trim() },
+    find: { apiKey, model: $("extractModel").value.trim() },
+  };
+}
+function busy(b) { $("pickBtn").disabled = $("sampleBtn").disabled = b; }
+
+async function runPipeline({ file, sampleText }) {
+  resetUpload();
+  const s = settings();
+  if (!s.apiKey) {
+    setStep("type", "error", "설정에 Gemini API 키를 먼저 넣어 주세요.");
+    return;
+  }
+  busy(true);
+  const retry = step => n => setStep(step, "active", `서버가 붐벼서 다시 시도 중… (${n}/2)`);
+  try {
+    // 1~2. 형식 확인 → 글자 읽기
+    let f;
+    if (sampleText) {
+      setStep("type", "done", "예시 문서 (텍스트)");
+      setStep("read", "done", "예시 문서 글자 사용");
+      f = { fileType: "text", method: "예시 문서", text: sampleText, warnings: [] };
+    } else {
+      setStep("type", "active");
+      let cur = "type";
+      try {
+        f = await fileToText(file, { ...s.ocr, onRetry: retry("read") }, {
+          typed: info => {
+            setStep("type", "done", `${info.label}${info.warnings.length ? ` · ${info.warnings[0]}` : ""}`);
+            setStep("read", "active");
+            cur = "read";
+          },
+          reading: msg => setStep("read", "active", msg),
+        });
+      } catch (e) {
+        // 지원하지 않는 형식은 '형식 확인' 단계의 실패로, 나머지는 실패한 그 단계에 표시한다.
+        if (e.kind === "unsupported") { setStep("read", null); setStep("type", "error", e.message); }
+        else setStep(cur, "error", e.message);
+        return;
+      }
+      if (f.fileType === "hwpx") setStep("type", "done", "한글 문서 (HWPX)");
+      setStep("read", "done", `${f.method} · ${f.text.length}자`);
+    }
+    $("readText").replaceChildren(h("details", { class: "readtext" },
+      h("summary", {}, "읽은 글자 보기"), h("pre", {}, f.text)));
+
+    // 3. 날짜·장소·준비물 찾기
+    setStep("find", "active");
+    let ex;
+    try {
+      ex = await extract({ ...s.find, ocrText: f.text, onRetry: retry("find") });
+    } catch (e) {
+      setStep("find", "error", e.message);
+      return;
+    }
+    const r = ex.result;
+    setStep("find", "done", r.has_schedule
+      ? [r.date, r.time, r.place].filter(Boolean).join(" · ") || "날짜를 찾지 못했어요"
+      : `일정이 없는 문서예요 (${r.category})`);
+
+    // 4. 중요도 판단
+    const imp = judgeImportance({ deadline: r.deadline, text: f.text, title: r.title });
+    setStep("rank", "done", imp.important ? `중요 문서 · ${imp.reasons.join(", ")}` : "일반 문서");
+
+    pending = { fileName: file?.name || "예시 문서", fileType: f.fileType, method: f.method, text: f.text,
+      warnings: f.warnings, result: r, notes: ex.notes, importance: imp };
+    showReview();
+  } finally {
+    busy(false);
+    $("file").value = "";
+  }
+}
+
+const FIELD_LABEL = { title: "제목", date: "날짜", time: "시간", place: "장소", place_address: "주소",
+  checklist: "준비물", deadline: "마감", deadline_time: "마감", category: "분류", summary: "요약" };
+const FIELD_INPUT = { title: "f_title", date: "f_date", time: "f_time", place: "f_place", place_address: "f_address",
+  checklist: "f_checklist", deadline: "f_deadline", deadline_time: "f_deadline" };
+
+function showReview() {
+  const r = pending.result;
+  $("f_title").value = r.title || "";
+  $("f_date").value = r.date || "";
+  $("f_time").value = r.time || "";
+  $("f_place").value = r.place || "";
+  $("f_address").value = r.place_address || "";
+  $("f_checklist").value = (r.checklist || []).join(", ");
+  $("f_deadline").value = r.deadline || "";
+  $("f_minutes").value = "";
+  document.querySelectorAll("#fields input").forEach(i => i.classList.remove("flag"));
+  const unsure = [...new Set(r.uncertain_fields.map(k => FIELD_LABEL[k] || k))];
+  r.uncertain_fields.forEach(k => FIELD_INPUT[k] && $(FIELD_INPUT[k]).classList.add("flag"));
+
+  const notes = [];
+  if (!r.has_schedule) {
+    notes.push(h("p", { class: "info" }, `일정이 없는 ${r.category} 문서예요. 문서함에만 저장할게요. 일정이 맞다면 날짜를 넣고 캘린더에 저장하세요.`));
+  }
+  if (unsure.length) notes.push(h("p", { class: "warn" }, `${unsure.join(", ")} 글자가 확실하지 않아요. 한 번 확인해 주세요.`));
+  for (const w of pending.warnings) notes.push(h("p", { class: "warn" }, w));
+  $("resultNotes").replaceChildren(...notes);
+  $("resultTitle").textContent = r.has_schedule ? "이 내용이 맞나요?" : "읽은 내용";
+  $("saveBtn").textContent = r.has_schedule ? "캘린더에 저장" : "문서함에 저장";
+  $("result").classList.add("show");
+  $("result").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function refreshSaveLabel() {
+  if (!pending) return;
+  $("saveBtn").textContent = $("f_date").value ? "캘린더에 저장" : "문서함에 저장";
+}
+$("f_date").addEventListener("input", refreshSaveLabel);
+
+function save() {
+  if (!pending) return;
+  const r = pending.result;
+  const title = $("f_title").value.trim() || r.title || pending.fileName;
+  const date = $("f_date").value;
+  const time = $("f_time").value || null;
+  const deadline = $("f_deadline").value || null;
+  const minutes = parseInt($("f_minutes").value, 10);
+  const imp = judgeImportance({ deadline, text: pending.text, title });
+
+  const doc = {
+    id: uid("doc"), name: pending.fileName, title,
+    file_type: pending.fileType, category: r.category, summary: r.summary || "",
+    is_important: imp.important, importance_reasons: imp.reasons,
+    deadline, deadline_time: deadline ? r.deadline_time : null,
+    created_at: TODAY(), text: pending.text.slice(0, 20000),
+    pdf: null, jpg: null, event_id: null,
+  };
+  if (date) {
+    const ev = {
+      id: uid("evt"), title, date, time,
+      place: { name: $("f_place").value.trim() || null, address: $("f_address").value.trim() || null, lat: null, lng: null },
+      document_id: doc.id,
+      checklist: $("f_checklist").value.split(",").map(t => t.trim()).filter(Boolean).map(text => ({ text, done: false })),
+      weather: null,
+      travel: { mode: "manual", minutes: minutes > 0 ? Math.min(minutes, 600) : null },
+      alerts: [],
+    };
+    doc.event_id = ev.id;
+    db.events.push(ev);
+    calState.month = date.slice(0, 7);
+    calState.sel = date;
+  }
+  db.docs.unshift(doc);
+  persist();
+  resetUpload();
+  go(date ? "calendar" : "docs");
+}
+
+$("pickBtn").onclick = () => $("file").click();
+$("sampleBtn").onclick = () => runPipeline({ sampleText: SAMPLES["정상 안내문"] });
+$("file").onchange = () => { const f = $("file").files[0]; if (f) runPipeline({ file: f }); };
+$("resetBtn").onclick = resetUpload;
+$("saveBtn").onclick = save;
+const drop = $("drop");
+drop.ondragover = e => { e.preventDefault(); drop.classList.add("over"); };
+drop.ondragleave = () => drop.classList.remove("over");
+drop.ondrop = e => {
+  e.preventDefault();
+  drop.classList.remove("over");
+  const f = e.dataTransfer.files[0];
+  if (f && !$("pickBtn").disabled) runPipeline({ file: f });
+};
+
+// ---------- 캘린더 ----------
+const calState = { month: TODAY().slice(0, 7), sel: TODAY() };
+function shiftMonth(delta) {
+  const [y, m] = calState.month.split("-").map(Number);
+  const d = new Date(Date.UTC(y, m - 1 + delta, 1));
+  calState.month = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+  renderCalendar();
+}
+$("prevMonth").onclick = () => shiftMonth(-1);
+$("nextMonth").onclick = () => shiftMonth(1);
+
+function renderCalendar() {
+  const [y, m] = calState.month.split("-").map(Number);
+  $("calTitle").textContent = `${y}년 ${m}월`;
+  const first = new Date(Date.UTC(y, m - 1, 1)).getUTCDay();
+  const days = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const has = new Set(db.events.filter(e => e.date?.startsWith(calState.month)).map(e => +e.date.slice(8)));
+  const today = TODAY();
+  const cells = [...WEEKDAYS].map(d => h("div", { class: "dow" }, d));
+  for (let i = 0; i < first; i++) cells.push(h("div", { class: "d empty" }));
+  for (let d = 1; d <= days; d++) {
+    const ymd = `${calState.month}-${String(d).padStart(2, "0")}`;
+    const cls = ["d", has.has(d) && "has", ymd === today && "today", ymd === calState.sel && "sel"].filter(Boolean).join(" ");
+    cells.push(h("button", { class: cls, "aria-label": `${m}월 ${d}일${has.has(d) ? ", 일정 있음" : ""}`,
+      "aria-pressed": ymd === calState.sel ? "true" : "false",
+      onclick: () => { calState.sel = ymd; renderCalendar(); } }, String(d)));
+  }
+  $("cal").replaceChildren(...cells);
+
+  const dayEvents = db.events.filter(e => e.date === calState.sel)
+    .sort((a, b) => (a.time || "99").localeCompare(b.time || "99"));
+  const conflicts = conflictsFor(dayEvents);
+  if (!dayEvents.length) {
+    $("dayEvents").replaceChildren(h("p", { class: "empty" }, `${fmtKDate(calState.sel)}에는 일정이 없어요.`));
+    return;
+  }
+  $("dayEvents").replaceChildren(...dayEvents.map(ev => {
+    const doc = db.docs.find(d => d.id === ev.document_id);
+    const dep = departAt(ev.time, ev.travel?.minutes);
+    const [, mm, dd] = ev.date.split("-").map(Number);
+    let armed = false;
+    const delBtn = h("button", { class: "ghost mini del", onclick: e => {
+      if (!armed) { armed = true; e.target.textContent = "한 번 더 누르면 삭제"; return; }
+      db.events = db.events.filter(x => x.id !== ev.id);
+      if (doc) doc.event_id = null;
+      persist(); renderAll();
+    } }, "삭제");
+    return h("div", { class: "event" },
+      h("h3", {}, ev.title),
+      h("p", { class: "sub" }, [`${mm}월 ${dd}일 ${ev.time || "시간 미정"}`, ev.place?.name, doc?.is_important && "중요 문서"].filter(Boolean).join(" · ")),
+      h("div", { class: "go" }, h("span", { class: "sub" }, "출발"),
+        dep ? h("strong", {}, `${dep.prevDay ? "전날 " : ""}${dep.time}`)
+            : h("span", { class: "pending" }, ev.time ? "이동 시간을 넣어 주세요" : "시간 미정")),
+      ev.time ? h("div", { class: "tools" },
+        h("label", {}, "이동 ", h("input", { type: "number", min: "0", max: "600", value: ev.travel?.minutes ?? "",
+          "aria-label": "이동 시간(분)", onchange: e => setMinutes(ev, e.target.value) }), " 분"),
+        delBtn) : h("div", { class: "tools" }, delBtn),
+      conflicts[ev.id] ? h("p", { class: "conflict" }, conflicts[ev.id]) : null);
+  }));
+}
+
+// ---------- 문서함 ----------
+let docFilter = "all";
+const tabBtns = document.querySelectorAll(".tabs button");
+tabBtns.forEach(b => b.addEventListener("click", () => {
+  docFilter = b.dataset.f;
+  tabBtns.forEach(x => x.setAttribute("aria-pressed", x === b ? "true" : "false"));
+  renderDocs();
+}));
+function renderDocs() {
+  const today = TODAY();
+  const list = db.docs.filter(d => docFilter === "all" || (docFilter === "star" ? d.is_important : d.file_type === docFilter));
+  if (!list.length) {
+    $("docList").replaceChildren(h("li", { class: "empty", style: "border:0;display:block" },
+      db.docs.length ? "이 분류에는 문서가 없어요." : "아직 올린 문서가 없어요."));
+    return;
+  }
+  $("docList").replaceChildren(...list.map(d => {
+    const ev = db.events.find(e => e.id === d.event_id);
+    const dd = dday(d.deadline || ev?.date, today);
+    const [, mm, day] = d.created_at.split("-").map(Number);
+    const sub = [d.category, FT_FROM[d.file_type], `${mm}월 ${day}일 올림`].filter(Boolean).join(" · ");
+    const star = h("button", { class: "star", "aria-pressed": d.is_important ? "true" : "false",
+      title: d.is_important ? "중요 표시 해제" : "중요 문서로 표시",
+      onclick: () => { d.is_important = !d.is_important; persist(); renderDocs(); } },
+      d.is_important ? (dd || "중요") : "☆");
+    return h("li", {},
+      h("span", { class: "ftype" }, FT_LABEL[d.file_type] || "TXT"),
+      h("div", {}, h("div", { class: "t" }, d.title), h("div", { class: "s" }, sub)),
+      star);
+  }));
+}
+
+function renderAll() { renderHome(); renderCalendar(); renderDocs(); }
+
+// ---------- 설정 ----------
+const savedKey = safeStorage.get("gemini_key");
+if (savedKey) { $("key").value = savedKey; $("remember").checked = true; }
+$("remember").onchange = () => { if (!$("remember").checked) safeStorage.del("gemini_key"); };
+let wipeArmed = false;
+$("wipeBtn").onclick = () => {
+  if (!wipeArmed) { wipeArmed = true; $("wipeBtn").textContent = "한 번 더 누르면 모두 지워요"; return; }
+  db = { events: [], docs: [] };
+  persist();
+  wipeArmed = false;
+  $("wipeBtn").textContent = "저장된 일정·문서 모두 지우기";
+  renderAll();
+};
+
+renderAll();
 </script>
 </body>
 </html>
