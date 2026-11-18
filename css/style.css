@@ -561,3 +561,41 @@ dialog::backdrop { background: rgb(8 10 16 / 0.5); }
   .hero .center-row .btn { flex: 0 0 auto; }
   .demo-box .row-gap .btn { flex: 0 0 auto; }
 }
+
+/* 날씨 강화 */
+.wx-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.wx-chip {
+  display: inline-block; white-space: nowrap; font-size: 0.8rem; font-weight: 600;
+  padding: 2px 9px; border-radius: 999px; background: var(--card-2); color: var(--text);
+}
+.wx-chip.air-0 { background: #dbeafe; color: #1e40af; }
+.wx-chip.air-1 { background: #dcfce7; color: #166534; }
+.wx-chip.air-2 { background: #ffedd5; color: #9a3412; }
+.wx-chip.air-3 { background: #fee2e2; color: #991b1b; }
+@media (prefers-color-scheme: dark) {
+  .wx-chip.air-0 { background: #1e3a8a; color: #dbeafe; }
+  .wx-chip.air-1 { background: #14532d; color: #dcfce7; }
+  .wx-chip.air-2 { background: #7c2d12; color: #ffedd5; }
+  .wx-chip.air-3 { background: #7f1d1d; color: #fee2e2; }
+}
+.wx-hours { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin-top: 12px; text-align: center; }
+.wx-hour {
+  display: flex; flex-direction: column; gap: 1px; padding: 6px 0; border-radius: 10px;
+  background: var(--card-2); font-size: 0.78rem; color: var(--muted);
+}
+.wx-hour b { color: var(--text); font-size: 0.88rem; }
+.wx-hour small { color: #3b82f6; font-size: 0.72rem; }
+.wx-at { font-size: 0.9rem; }
+
+/* 간단 분석·스캔 모드 */
+.small-note { font-size: 0.84rem; margin: 8px 0 0; }
+#local-fallback { margin-top: 8px; }
+.btn[hidden] { display: none !important; } /* .btn의 display가 hidden 속성을 덮어쓰던 문제 (조정 적용·간단 분석 버튼) */
+.local-note { margin: 12px 0 0; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; min-height: 44px; }
+.seg label { display: flex; cursor: pointer; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg span { display: flex; align-items: center; padding: 0 14px; font-size: 0.92rem; font-weight: 600; color: var(--muted); }
+.seg label + label span { border-left: 1px solid var(--line); }
+.seg input:checked + span { background: var(--primary-weak); color: var(--primary); }
+.seg input:focus-visible + span { outline: 2px solid var(--primary); outline-offset: -2px; }

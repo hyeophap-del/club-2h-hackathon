@@ -5,14 +5,26 @@
 //                      ├─▶ scanAgent    : 모서리로 문서 펴기 → JPG/PDF, 보관함 저장
 //                      ├─▶ routeAgent   : 장소 검색 → 소요시간 → 출발 시각 → 출발 알람
 //                      └─▶ weatherAgent : 그날 날씨 → 우산 자동 추가, 옷차림 조언
+//   (키 없음 / 한도 초과) ─▶ analyzeLocally (localAnalyzer: OpenCV 테두리 + Tesseract 글자 인식 + 날짜 규칙, 같은 결과 모양)
 import { analyzeDocument } from './analyzeAgent.js';
+import { analyzeLocally } from './localAnalyzer.js'; // 키가 없거나 한도 초과일 때: OCR + 날짜 규칙
 import { searchPlace, planTrip, departTime } from './routeAgent.js';
 import { getForecastFor, adviceFor } from './weatherAgent.js';
 import { getSettings, getTasks, updateTask } from '../storage.js';
 import { buildReminders } from '../notify.js';
 import { todayKey } from '../util.js';
 
-export { analyzeDocument };
+export { analyzeDocument, analyzeLocally };
+
+// 키 없이 간단 분석(OCR + 규칙 기반 날짜)으로 넘어갈 만한 실패인지: 서버 혼잡(재시도 대상) 또는 무료 한도 초과
+export function canFallBackLocally(err) {
+  return !!err && (err.retryable || /429|한도|quota|RESOURCE_EXHAUSTED/i.test(err.message || ''));
+}
+
+// 키가 있으면 Gemini, 없으면 키 없는 간단 분석. onStatus(text)로 진행 상황을 알림
+export function analyzeWithFallback(pages, onStatus) {
+  return getSettings().apiKey ? analyzeDocument(pages, onStatus) : analyzeLocally(pages, onStatus);
+}
 
 const DEMO_HOME = { name: '집(예시: 서초구 반포동)', lat: 37.5045, lng: 127.005 };
 
@@ -45,11 +57,12 @@ export async function buildBriefing(task) {
   const pos = task.place ? { lat: task.place.lat, lng: task.place.lng, label: task.place.name } : undefined;
   let weather = null;
   try {
-    weather = await getForecastFor(task.dueDate, pos);
+    weather = await getForecastFor(task.dueDate, pos, task.dueTime);
   } catch { /* 날씨 실패 시 생략 */ }
   const tips = adviceFor(weather);
   const items = [...(task.items || [])];
   if (weather?.rain >= 50 && !items.some((i) => i.includes('우산'))) items.push('우산 (비 예보)');
+  if (weather?.air?.level >= 2 && !items.some((i) => i.includes('마스크'))) items.push(`마스크 (미세먼지 ${weather.air.grade})`);
   return { task, weather, tips, items };
 }
 

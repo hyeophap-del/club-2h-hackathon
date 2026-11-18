@@ -22,7 +22,9 @@
         <div id="thumbs" class="thumbs"></div>
         <p class="notice">⚠️ 무료 Gemini API는 입력한 내용이 Google 서비스 개선에 쓰일 수 있습니다. 주민등록번호 등 민감한 개인정보가 담긴 문서는 올리지 마세요.</p>
         <button class="btn primary block" id="analyze" disabled>분석하기</button>
+        <p id="nokey-hint" class="muted small-note" hidden>🔎 Gemini 키가 없어서 <b>키 없이 간단 분석</b>(글자 인식 + 날짜 찾기)으로 진행합니다. 정확한 분석은 <a href="settings.html">설정</a>에서 키를 넣어 주세요.</p>
         <p id="error" class="error" hidden></p>
+        <button class="btn block" id="local-fallback" hidden>🔎 키 없이 간단 분석으로 계속</button>
       </div>
 
       <div class="card demo-box">
@@ -43,6 +45,7 @@
         <li>③ 그날 날씨 확인</li>
         <li>④ 장소까지 이동 시간 계산</li>
       </ol>
+      <p class="notice local-note" id="local-note" hidden>🔎 키 없이 간단 분석 중 — 날짜 위주로 찾습니다. 정확한 분석은 설정에서 Gemini 키를 넣어 주세요.</p>
       <p class="center muted" id="loading-text">메인 에이전트가 문서를 처리하는 중입니다… (10~30초)</p>
     </section>
 
@@ -58,7 +61,11 @@
         <div class="row-gap">
           <button class="btn" id="adjust">모서리 조정</button>
           <button class="btn primary" id="apply-corners" hidden>조정 적용</button>
-          <label class="check"><input type="checkbox" id="enhance" checked /> 선명하게</label>
+          <div class="seg" id="scan-mode" role="radiogroup" aria-label="스캔 모드">
+            <label><input type="radio" name="scan-mode" value="color" checked /><span>컬러</span></label>
+            <label><input type="radio" name="scan-mode" value="gray" /><span>회색조</span></label>
+            <label><input type="radio" name="scan-mode" value="bw" /><span>흑백</span></label>
+          </div>
           <span class="spacer"></span>
           <button class="btn" id="dl-jpg">JPG 저장</button>
           <button class="btn" id="dl-pdf">PDF 저장</button>
@@ -123,9 +130,9 @@
   <script type="module">
     import { initPage } from './js/nav.js';
     import { fileToInlineData, fingerprint, sharpness, BLUR_THRESHOLD } from './js/image.js';
-    import { analyzeDocument, planTaskTrip } from './js/agents/orchestrator.js';
+    import { analyzeDocument, analyzeLocally, canFallBackLocally, planTaskTrip } from './js/agents/orchestrator.js';
     import { DOC_TYPES, AUDIENCES } from './js/agents/analyzeAgent.js';
-    import { cornersFromAI, defaultCorners, warpDocument, enhance, downloadJpg, downloadPdf } from './js/agents/scanAgent.js';
+    import { cornersFromAI, defaultCorners, detectCornersCV, warpDocument, applyMode, downloadJpg, downloadPdf } from './js/agents/scanAgent.js';
     import { departTime } from './js/agents/routeAgent.js';
     import { getForecastFor, adviceFor } from './js/agents/weatherAgent.js';
     import { createCornerEditor } from './js/cornerEditor.js';
@@ -216,20 +223,35 @@
           return;
         }
       }
+      // 키가 없으면 오류 대신 키 없는 간단 분석(글자 인식 + 날짜 규칙)으로 진행
+      await runAnalysis(demo ? 'demo' : getSettings().apiKey ? 'gemini' : 'local');
+    });
+
+    // mode: 'demo' | 'gemini' | 'local'
+    async function runAnalysis(mode) {
+      const setText = (text) => { $('#loading-text').textContent = text; };
+      $('#local-fallback').hidden = true;
+      $('#local-note').hidden = mode !== 'local';
+      setText(mode === 'local' ? '글자 인식 도구를 준비하는 중입니다… (처음 한 번은 30초~1분)' : '메인 에이전트가 문서를 처리하는 중입니다… (10~30초)');
       showStep('loading');
       try {
-        const work = demo
+        const inline = pages.map((p) => p.inline);
+        const work = mode === 'demo'
           ? new Promise((r) => setTimeout(() => r(structuredClone(demo)), 2200))
-          : analyzeDocument(pages.map((p) => p.inline), (text) => { $('#loading-text').textContent = text; });
+          : mode === 'local' ? analyzeLocally(inline, setText) : analyzeDocument(inline, setText);
         result = await animateProgress(work);
-        await prepareScans();
+        await prepareScans(setText);
         renderReview();
         showStep('review');
       } catch (err) {
         showStep('upload');
         showError(err.message);
+        // Gemini가 붐비거나 무료 한도를 넘었으면 키 없는 간단 분석으로 이어 갈 수 있게
+        $('#local-fallback').hidden = !(mode === 'gemini' && canFallBackLocally(err));
       }
-    });
+    }
+    $('#local-fallback').addEventListener('click', () => runAnalysis('local'));
+    $('#nokey-hint').hidden = !!getSettings().apiKey || !!new URLSearchParams(location.search).get('demo');
 
     // ---------- ① 문서 인식 ----------
     function loadImg(src) {
@@ -241,13 +263,18 @@
       });
     }
 
-    async function prepareScans() {
+    async function prepareScans(setText) {
       for (let i = 0; i < pages.length; i++) {
         const p = pages[i];
         if (p.inline.mimeType === 'application/pdf') continue;
         p.img = await loadImg(p.inline.previewUrl);
         const w = p.img.naturalWidth, h = p.img.naturalHeight;
         p.found = cornersFromAI(result.pages?.[i]?.corners, w, h);
+        // AI가 모서리를 못 줬으면 OpenCV로 한 번 더 찾아봄 (간단 분석은 이미 찾아봤으므로 생략)
+        if (!p.found && !result.local && !demo) {
+          setText?.('문서 테두리를 찾는 중입니다…');
+          p.found = await detectCornersCV(p.img);
+        }
         p.corners = p.found || defaultCorners(w, h);
         p.aiBlurry = !!result.pages?.[i]?.blurry;
         warp(p);
@@ -257,7 +284,7 @@
 
     function warp(p) {
       p.scanned = warpDocument(p.img, p.corners);
-      if ($('#enhance').checked) enhance(p.scanned);
+      applyMode(p.scanned, scanMode());
       p.scanned.className = 'scan-result';
     }
 
@@ -298,8 +325,10 @@
       $('#adjust').hidden = false;
       $('#apply-corners').hidden = true;
     });
-    $('#enhance').addEventListener('change', () => {
-      if (editor) return;
+    // 스캔 모드: 컬러(기본, 선명하게) / 회색조 / 흑백(적응형 이진화)
+    const scanMode = () => document.querySelector('input[name="scan-mode"]:checked')?.value || 'color';
+    $('#scan-mode').addEventListener('change', () => {
+      if (editor) return; // 모서리 조정 중이면 "조정 적용" 때 반영
       pages.filter((p) => p.img).forEach(warp);
       renderScan();
     });
@@ -321,7 +350,8 @@
         <span class="pill">${t.icon} ${t.label}</span>
         <span class="pill">${AUDIENCES[result.audience] || '일반'}</span>
         ${demo ? '<span class="pill warn">🧪 예시 체험</span>' : ''}
-        ${lang !== 'ko' ? `<span class="pill">🌐 ${LANGUAGES[lang].label}</span>` : ''}`;
+        ${result.local ? '<span class="pill warn" title="Gemini 키 없이 글자 인식과 날짜 규칙으로 찾은 결과입니다">🔎 간단 분석(키 없음)</span>' : ''}
+        ${lang !== 'ko' && !result.local ? `<span class="pill">🌐 ${LANGUAGES[lang].label}</span>` : ''}`;
     }
 
     function copyBtn(text) {
@@ -392,10 +422,12 @@
       if (daysLeft(dueDate) > 15) { box.innerHTML = '<p class="muted">🌤️ 날씨 예보는 16일 이내 날짜만 볼 수 있습니다.</p>'; return; }
       try {
         const pos = m.place ? { lat: m.place.lat, lng: m.place.lng, label: m.place.name } : undefined;
-        const w = await getForecastFor(dueDate, pos);
+        const w = await getForecastFor(dueDate, pos, card.querySelector('.t-time')?.value || undefined);
         if (!w) { box.innerHTML = ''; return; }
         const tips = adviceFor(w);
-        box.innerHTML = `<p class="wx-line">${w.icon} 그날 ${esc(w.place)} ${esc(w.text)} ${w.min}~${w.max}℃ · 강수 ${w.rain}%${tips.length ? `<br />${tips.map(esc).join(' · ')}` : ''}</p>`;
+        const at = w.at ? `<br />🕘 ${String(w.at.hour).padStart(2, '0')}시 ${w.at.icon} ${w.at.temp}℃ ${esc(w.at.text)} · 비 ${w.at.rain}%` : '';
+        const air = w.air ? `<br />😷 미세먼지 ${w.air.grade} (PM10 ${w.air.grade10 ?? '-'} · PM2.5 ${w.air.grade25 ?? '-'})` : '';
+        box.innerHTML = `<p class="wx-line">${w.icon} 그날 ${esc(w.place)} ${esc(w.text)} ${w.min}~${w.max}℃ · 강수 ${w.rain}%${at}${air}${tips.length ? `<br />${tips.map(esc).join(' · ')}` : ''}</p>`;
         // 비 예보면 준비물에 우산 자동 추가
         const items = card.querySelector('.t-items');
         if (w.rain >= 50 && !items.value.includes('우산')) items.value = items.value ? `${items.value}, 우산` : '우산';
@@ -429,10 +461,11 @@
       }
       if (t.title && !t.due_date) node.querySelector('.t-nodate').hidden = false;
       if (t.confidence === 'low') { node.querySelector('.t-lowconf').hidden = false; node.classList.add('lowconf'); }
+      if (t.confidence === 'low' && result?.local) node.querySelector('.t-lowconf').textContent = '🟡 키 없이 글자 인식으로 찾은 날짜입니다. 할 일 이름·종류를 원문과 비교해 고쳐 주세요.';
       renderSteps(node, t.steps || []);
       node.querySelector('.t-location').addEventListener('change', () => computeTrip(node));
       node.querySelector('.t-date').addEventListener('change', () => (meta.get(node).place ? computeTrip(node) : showWeather(node)));
-      node.querySelector('.t-time').addEventListener('change', () => meta.get(node).place && computeTrip(node));
+      node.querySelector('.t-time').addEventListener('change', () => (meta.get(node).place ? computeTrip(node) : showWeather(node)));
       $('#task-list').appendChild(node);
       if (t.location) computeTrip(node); else showWeather(node);
     }
@@ -513,6 +546,7 @@
         contacts: result.contacts || [],
         hash: demo ? null : hash,
         demo: !!demo,
+        local: !!result.local,
         pageCount: pages.length,
       });
       const scans = pages.filter((p) => p.scanned);

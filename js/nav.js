@@ -43,7 +43,7 @@ export function initPage(active) {
   if (!getSettings().apiKey && !['settings.html', 'index.html'].includes(active)) {
     const warn = document.createElement('div');
     warn.className = 'banner warn';
-    warn.innerHTML = 'Gemini API 키가 없어 실제 분석은 할 수 없습니다. <a href="settings.html">설정</a>하거나 예시로 체험해 보세요.';
+    warn.innerHTML = 'Gemini API 키가 없어 <b>간단 분석</b>(글자 인식으로 날짜 위주)만 됩니다. 정확한 분석은 <a href="settings.html">설정</a>에서 키를 넣거나 예시로 체험해 보세요.';
     header.after(warn);
   }
 

@@ -161,3 +161,218 @@ export function downloadPdf(pages, name = '문서') {
   });
   pdf.save(`${name}.pdf`);
 }
+
+// ---------------------------------------------------------------------------
+// 스캔 모드(컬러/회색조/흑백)와 OpenCV 테두리 찾기
+// 원작: 팀원 leokiller6646의 dw 브랜치 구현을 옮겨 옴 (js/scanner.js의 applyFilter·detectCorners)
+// ---------------------------------------------------------------------------
+
+export const SCAN_MODES = { color: '컬러', gray: '회색조', bw: '흑백' };
+
+function percentile(hist, total, p) {
+  let acc = 0;
+  const target = total * p;
+  for (let i = 0; i < 256; i++) { acc += hist[i]; if (acc >= target) return i; }
+  return 255;
+}
+
+// canvas를 그 자리에서 보정해서 돌려줌
+//   color: 기존 "선명하게" 필터 (밝기·대비)
+//   gray : 밝기만 남기고 1%~97% 구간을 늘려 종이는 하얗게, 글자는 진하게
+//   bw   : 적분 영상으로 주변 평균을 구하는 적응형 이진화 (그림자·조명 얼룩에 강함)
+export function applyMode(canvas, mode = 'color') {
+  if (mode === 'color') return enhance(canvas);
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height, n = w * h;
+  const img = ctx.getImageData(0, 0, w, h);
+  const d = img.data;
+  const lum = new Uint8ClampedArray(n);
+  for (let i = 0, j = 0; j < n; i += 4, j++) lum[j] = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+
+  if (mode === 'gray') {
+    const hist = new Uint32Array(256);
+    for (let j = 0; j < n; j++) hist[lum[j]]++;
+    const lo = percentile(hist, n, 0.01);
+    const hi = Math.max(lo + 1, percentile(hist, n, 0.97));
+    const k = 255 / (hi - lo);
+    for (let i = 0, j = 0; j < n; i += 4, j++) d[i] = d[i + 1] = d[i + 2] = (lum[j] - lo) * k;
+  } else if (mode === 'bw') {
+    const integ = new Float64Array((w + 1) * (h + 1));
+    for (let y = 1; y <= h; y++) {
+      let row = 0;
+      for (let x = 1; x <= w; x++) {
+        row += lum[(y - 1) * w + (x - 1)];
+        integ[y * (w + 1) + x] = integ[(y - 1) * (w + 1) + x] + row;
+      }
+    }
+    const r = Math.max(8, Math.round(Math.max(w, h) / 50));
+    const C = 12;
+    for (let y = 0; y < h; y++) {
+      const y1 = Math.max(0, y - r), y2 = Math.min(h, y + r + 1);
+      for (let x = 0; x < w; x++) {
+        const x1 = Math.max(0, x - r), x2 = Math.min(w, x + r + 1);
+        const sum = integ[y2 * (w + 1) + x2] - integ[y1 * (w + 1) + x2] - integ[y2 * (w + 1) + x1] + integ[y1 * (w + 1) + x1];
+        const mean = sum / ((x2 - x1) * (y2 - y1));
+        const o = (y * w + x) * 4;
+        d[o] = d[o + 1] = d[o + 2] = lum[y * w + x] < mean - C ? 0 : 255;
+      }
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  return canvas;
+}
+
+// 외부 스크립트를 필요할 때만 한 번 불러옴 (주소가 여러 개면 앞에서부터 시도)
+const scriptCache = new Map();
+export function loadScriptOnce(urls, timeoutMs = 20000) {
+  const key = urls.join('|');
+  if (!scriptCache.has(key)) {
+    const p = (async () => {
+      for (const src of urls) {
+        const ok = await new Promise((resolve) => {
+          const s = document.createElement('script');
+          s.src = src;
+          s.async = true;
+          const timer = setTimeout(() => { s.remove(); resolve(false); }, timeoutMs);
+          s.onload = () => { clearTimeout(timer); resolve(true); };
+          s.onerror = () => { clearTimeout(timer); s.remove(); resolve(false); };
+          document.head.appendChild(s);
+        });
+        if (ok) return true;
+      }
+      throw new Error('외부 도구를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.');
+    })();
+    p.catch(() => scriptCache.delete(key)); // 실패하면 다음에 다시 시도할 수 있게
+    scriptCache.set(key, p);
+  }
+  return scriptCache.get(key);
+}
+
+// OpenCV.js(약 10MB)는 테두리를 찾아야 할 때만 불러옵니다. 첫 주소가 안 되면 다음 주소.
+const OPENCV_URLS = [
+  'https://docs.opencv.org/4.9.0/opencv.js',
+  'https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.9.0-release.2/dist/opencv.js',
+];
+let cvPromise = null;
+
+function withTimeout(promise, ms, message) {
+  let timer;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(message)), ms); }),
+  ]).finally(() => clearTimeout(timer));
+}
+
+// 주의: Emscripten 모듈(cv)은 then을 가진 객체라서 Promise로 바로 넘기면 끝없이 then을 부름
+//       → 항상 { cv } 상자에 담아서 돌려줌
+export function loadOpenCV(timeoutMs = 20000) {
+  if (!cvPromise) {
+    cvPromise = withTimeout((async () => {
+      await loadScriptOnce(OPENCV_URLS, timeoutMs);
+      const c = window.cv;
+      if (!c) throw new Error('OpenCV 없음');
+      if (c.Mat) return { cv: c };
+      if (typeof c.then === 'function') {
+        return await new Promise((resolve) => c.then((mod) => resolve({ cv: (window.cv = mod || c) })));
+      }
+      return await new Promise((resolve) => { c.onRuntimeInitialized = () => resolve({ cv: window.cv }); });
+    })(), timeoutMs, 'OpenCV 불러오기 시간 초과');
+    cvPromise.catch(() => { cvPromise = null; });
+  }
+  return cvPromise;
+}
+
+function orderCorners(pts) {
+  // [좌상, 우상, 우하, 좌하]
+  const bySum = [...pts].sort((a, b) => a.x + a.y - (b.x + b.y));
+  const byDiff = [...pts].sort((a, b) => a.y - a.x - (b.y - b.x));
+  return [bySum[0], byDiff[0], bySum[3], byDiff[3]].map((p) => ({ x: p.x, y: p.y }));
+}
+
+// 사진(Image 또는 canvas)에서 가장 큰 사각형 윤곽을 찾아 픽셀 좌표 [tl, tr, br, bl]로 돌려줌.
+// OpenCV를 못 불러오거나(오프라인·시간 초과) 사각형을 못 찾으면 null.
+export async function detectCornersCV(img, timeoutMs = 20000) {
+  let cv;
+  try {
+    ({ cv } = await loadOpenCV(timeoutMs));
+  } catch (err) {
+    console.warn('OpenCV를 불러오지 못해 테두리 자동 찾기를 건너뜁니다.', err);
+    return null;
+  }
+  const W = img.naturalWidth || img.width, H = img.naturalHeight || img.height;
+  const scale = Math.min(1, 900 / Math.max(W, H));
+  const small = document.createElement('canvas');
+  small.width = Math.round(W * scale);
+  small.height = Math.round(H * scale);
+  small.getContext('2d').drawImage(img, 0, 0, small.width, small.height);
+
+  const mats = [];
+  const track = (m) => (mats.push(m), m);
+  try {
+    const src = track(cv.imread(small));
+    const gray = track(new cv.Mat());
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    const blur = track(new cv.Mat());
+    cv.GaussianBlur(gray, blur, new cv.Size(5, 5), 0);
+    const kernel = track(cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5)));
+    const total = small.width * small.height;
+    const attempts = [
+      (dst) => cv.Canny(blur, dst, 50, 150),
+      (dst) => cv.Canny(blur, dst, 20, 80),
+      (dst) => cv.threshold(blur, dst, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU), // 배경과 종이의 밝기 차이
+    ];
+
+    let best = null;
+    for (const run of attempts) {
+      const edges = track(new cv.Mat());
+      run(edges);
+      cv.morphologyEx(edges, edges, cv.MORPH_CLOSE, kernel);
+      cv.dilate(edges, edges, kernel);
+      const contours = track(new cv.MatVector());
+      const hierarchy = track(new cv.Mat());
+      cv.findContours(edges, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+      for (let i = 0; i < contours.size(); i++) {
+        const c = contours.get(i);
+        const area = cv.contourArea(c);
+        if (area < total * 0.12 || area > total * 0.985) { c.delete(); continue; }
+        const peri = cv.arcLength(c, true);
+        const approx = new cv.Mat();
+        for (const eps of [0.02, 0.03, 0.045]) {
+          cv.approxPolyDP(c, approx, eps * peri, true);
+          if (approx.rows === 4) break;
+        }
+        if (approx.rows === 4 && cv.isContourConvex(approx) && (!best || area > best.area)) {
+          const d = approx.data32S;
+          best = { area, pts: [0, 1, 2, 3].map((k) => ({ x: d[k * 2], y: d[k * 2 + 1] })) };
+        }
+        approx.delete();
+        c.delete();
+      }
+      if (best) break;
+    }
+    if (!best) return null;
+    // 테두리 선에 걸친 배경이 남지 않도록 중심 쪽으로 아주 조금 당김
+    const cx = best.pts.reduce((a, p) => a + p.x, 0) / 4;
+    const cy = best.pts.reduce((a, p) => a + p.y, 0) / 4;
+    const shrink = 0.006;
+    return orderCorners(best.pts.map((p) => ({
+      x: (p.x + (cx - p.x) * shrink) / scale,
+      y: (p.y + (cy - p.y) * shrink) / scale,
+    })));
+  } catch (err) {
+    console.warn('문서 테두리 인식 실패', err);
+    return null;
+  } finally {
+    mats.forEach((m) => { try { m.delete(); } catch { /* 이미 해제됨 */ } });
+  }
+}
+
+// 픽셀 좌표 [tl, tr, br, bl] → Gemini와 같은 0~1000 비율 좌표 객체 (cornersFromAI의 반대)
+export function cornersToAI(corners, width, height) {
+  if (!corners) return null;
+  const keys = ['top_left', 'top_right', 'bottom_right', 'bottom_left'];
+  return Object.fromEntries(corners.map((p, i) => [keys[i], {
+    x: Math.round((p.x / width) * 1000),
+    y: Math.round((p.y / height) * 1000),
+  }]));
+}

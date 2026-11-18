@@ -118,7 +118,8 @@ async function checkMorningBriefing() {
     const { getCurrentWeather, adviceFor } = await import('./agents/weatherAgent.js');
     const w = await getCurrentWeather();
     const tips = adviceFor(w.today);
-    weatherLine = `${w.icon} ${w.text} ${w.today.min}~${w.today.max}℃, 강수 ${w.today.rain}%${tips.length ? ' · ' + tips[0] : ''}`;
+    const air = w.air || w.today.air;
+    weatherLine = `${w.icon} ${w.text} ${w.today.min}~${w.today.max}℃, 강수 ${w.today.rain}%${air ? `, 미세먼지 ${air.grade}` : ''}${tips.length ? ' · ' + tips[0] : ''}`;
   } catch { /* 날씨 없이 */ }
   const taskLine = todays.length
     ? `오늘 할 일 ${todays.length}건: ${todays.map((t) => t.title).slice(0, 3).join(', ')}`

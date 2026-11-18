@@ -20,7 +20,7 @@ function loadKakaoSdk() {
     s.onload = () => window.kakao.maps.load(() => resolve(window.kakao));
     s.onerror = () => {
       sdkPromise = null;
-      reject(new Error('카카오 지도를 불러오지 못했습니다. 키와 등록된 사이트 도메인을 확인해 주세요.'));
+      reject(new Error(`카카오 지도를 불러오지 못했습니다. 카카오 개발자 콘솔에서 확인해 주세요: ① [제품 설정 → 카카오맵] 사용 ON ② JavaScript SDK 도메인에 ${location.origin} 등록 ③ 설정에 REST 키가 아닌 JavaScript 키 입력 (저장 후 반영까지 몇 분 걸릴 수 있음)`));
     };
     document.head.appendChild(s);
   });

@@ -64,12 +64,19 @@
       try {
         const w = await getCurrentWeather();
         const tips = adviceFor(w.today);
+        const chips = [
+          w.air ? `<span class="wx-chip air-${w.air.level}" title="PM10 ${w.air.pm10 ?? '-'}㎍/㎥ · PM2.5 ${w.air.pm25 ?? '-'}㎍/㎥">😷 미세먼지 ${w.air.grade10 ?? '-'} · 초미세 ${w.air.grade25 ?? '-'}</span>` : '',
+          w.uv != null ? `<span class="wx-chip ${w.uv >= 6 ? 'air-2' : ''}">🔆 자외선 ${w.uv}</span>` : '',
+        ].join('');
         $('#weather').innerHTML = `
           <div class="row-between">
             <div><div class="wx-big">${w.icon} ${w.temp}℃</div>
               <div class="muted">${esc(w.place)} · ${esc(w.text)} · 체감 ${w.feels}℃</div></div>
             <div class="right">최고 ${w.today.max}℃ / 최저 ${w.today.min}℃<br />강수확률 ${w.today.rain}%</div>
           </div>
+          ${chips ? `<div class="wx-chips">${chips}</div>` : ''}
+          ${w.hours?.length ? `<div class="wx-hours" aria-label="시간별 예보">${w.hours.map((h) => `
+            <div class="wx-hour"><span>${h.hour}시</span><span aria-label="${esc(h.text)}">${h.icon}</span><b>${h.temp}°</b><small>${h.rain >= 20 ? `${h.rain}%` : '&nbsp;'}</small></div>`).join('')}</div>` : ''}
           ${tips.length ? `<p>${tips.map(esc).join('<br />')}</p>` : ''}`;
       } catch (err) {
         $('#weather').innerHTML = `<p class="muted">날씨를 불러오지 못했습니다. (${esc(err.message)})</p>`;
@@ -92,7 +99,8 @@
         return `<div class="card brief" data-id="${t.id}">
           <div class="task-title">${kindChip(t.kind)} ${esc(t.title)} <span class="badge hot">${dDayLabel(t.dueDate)}</span></div>
           <div class="muted">${esc(formatDue(t))}${t.place ? ` · 📍 ${esc(t.place.name)}` : t.location ? ` · 📍 ${esc(t.location)}` : ''}</div>
-          ${w ? `<div>${w.icon} ${esc(w.text)} ${w.min}~${w.max}℃ · 강수 ${w.rain}%</div>` : ''}
+          ${w ? `<div>${w.icon} ${esc(w.text)} ${w.min}~${w.max}℃ · 강수 ${w.rain}%${w.air ? ` · <span class="wx-chip air-${w.air.level}">미세먼지 ${w.air.grade}</span>` : ''}</div>` : ''}
+          ${w?.at ? `<div class="wx-at">🕘 ${String(w.at.hour).padStart(2, '0')}시 ${w.at.icon} ${w.at.temp}℃ ${esc(w.at.text)} · 비 ${w.at.rain}%</div>` : ''}
           ${depart ? `<div class="depart">⏰ <b>${hhmm(depart)} 출발</b> (${esc(t.travel.basis)} ${t.travel.minutes}분) · <a href="${t.travel.mapLink}" target="_blank" rel="noopener">길찾기</a></div>` : ''}
           ${items.length ? `<div class="checklist">🎒 ${items.map((i) => `
             <label class="check-item ${doneSet.has(i) ? 'on' : ''}"><input type="checkbox" data-item="${esc(i)}" ${doneSet.has(i) ? 'checked' : ''} /> ${esc(i)}</label>`).join('')}
