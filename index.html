@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>문서 비서</title>
+  <meta name="description" content="사진 속 문서를 스캔해 PDF·JPG로 저장하고, 문서가 필요한 날짜와 그날 날씨를 알려주는 웹 도우미" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=Nanum+Myeongjo:wght@700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="masthead">
+    <div class="masthead__brand">
+      <h1>문서 비서</h1>
+      <p>사진 한 장으로 스캔하고, 언제 필요한 서류인지 읽고, 그날 날씨까지 알려드려요.</p>
+    </div>
+    <div class="masthead__today" aria-live="polite">
+      <span id="todayLabel"></span>
+      <span id="todayWeatherChip" class="chip chip--quiet">날씨 불러오는 중</span>
+    </div>
+  </header>
+
+  <main class="desk">
+    <!-- 1. 스캔 에이전트 -->
+    <section class="sheet sheet--scan" id="scanAgent" aria-labelledby="scanTitle">
+      <div class="sheet__head">
+        <span class="step" aria-hidden="true">1</span>
+        <div>
+          <h2 id="scanTitle">문서 스캔</h2>
+          <p class="sheet__sub">사진에서 문서 테두리를 찾아 반듯하게 펴고 PDF·JPG로 저장합니다.</p>
+        </div>
+        <span class="status" data-status="idle" id="scanStatus">대기</span>
+      </div>
+
+      <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="문서 사진 선택">
+        <div class="dropzone__inner">
+          <svg viewBox="0 0 48 48" width="44" height="44" aria-hidden="true"><path d="M12 6h17l9 9v27H12z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M29 6v9h9M18 25h12M18 31h12M18 37h7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+          <p class="dropzone__title">문서 사진을 여기에 끌어다 놓으세요</p>
+          <p class="dropzone__hint">붙여넣기(Ctrl+V)도 됩니다. 밝은 곳에서 문서 전체가 보이게 찍으면 더 정확해요.</p>
+          <div class="btn-row">
+            <label class="btn btn--primary">
+              사진 선택
+              <input type="file" id="fileInput" accept="image/*" multiple hidden />
+            </label>
+            <label class="btn">
+              카메라로 촬영
+              <input type="file" id="cameraInput" accept="image/*" capture="environment" hidden />
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="editor" id="editor" hidden>
+        <p class="editor__hint" id="editorHint">모서리 점을 끌어서 문서 영역을 맞추세요.</p>
+        <div class="editor__stage">
+          <canvas id="editorCanvas" aria-label="문서 모서리 조정 화면"></canvas>
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="redetectBtn" type="button">테두리 다시 찾기</button>
+          <button class="btn" id="fullFrameBtn" type="button">사진 전체 사용</button>
+          <button class="btn" id="cancelEditBtn" type="button">취소</button>
+          <button class="btn btn--primary" id="cropBtn" type="button">자르고 펴기</button>
+        </div>
+      </div>
+
+      <div class="result" id="result" hidden>
+        <div class="result__toolbar">
+          <div class="segmented" role="radiogroup" aria-label="보정 방식">
+            <button type="button" role="radio" data-filter="enhance" aria-checked="true">선명한 컬러</button>
+            <button type="button" role="radio" data-filter="original" aria-checked="false">원본</button>
+            <button type="button" role="radio" data-filter="gray" aria-checked="false">회색조</button>
+            <button type="button" role="radio" data-filter="bw" aria-checked="false">흑백 문서</button>
+          </div>
+          <button class="btn btn--small" id="rotateBtn" type="button" aria-label="90도 회전">90° 회전</button>
+        </div>
+        <div class="result__preview"><canvas id="resultCanvas" aria-label="스캔된 문서"></canvas></div>
+        <div class="pages" id="pages" aria-label="스캔한 페이지"></div>
+        <div class="btn-row">
+          <button class="btn btn--primary" id="pdfBtn" type="button">PDF로 저장</button>
+          <button class="btn" id="jpgBtn" type="button">JPG로 저장</button>
+          <button class="btn" id="addPageBtn" type="button">페이지 추가</button>
+          <button class="btn" id="analyzeBtn" type="button">이 문서 날짜 읽기</button>
+        </div>
+        <label class="check"><input type="checkbox" id="autoAnalyze" checked /> 스캔이 끝나면 자동으로 날짜 읽기</label>
+      </div>
+      <p class="engine-note" id="cvNote">테두리 인식 엔진을 불러오는 중입니다. 그동안에는 모서리를 직접 맞출 수 있어요.</p>
+    </section>
+
+    <!-- 2. 날짜 분석 에이전트 -->
+    <section class="sheet sheet--read" id="readAgent" aria-labelledby="readTitle">
+      <div class="sheet__head">
+        <span class="step" aria-hidden="true">2</span>
+        <div>
+          <h2 id="readTitle">날짜 읽기</h2>
+          <p class="sheet__sub">문서의 글자를 읽고, 이 서류가 어느 날짜에 필요한지 찾아냅니다.</p>
+        </div>
+        <span class="status" data-status="idle" id="readStatus">대기</span>
+      </div>
+
+      <div class="verdict" id="verdict">
+        <p class="verdict__empty">스캔한 문서가 생기면 여기에 필요한 날짜가 나타납니다. 사진 없이 '직접 고치기'에 글자를 붙여넣어 분석할 수도 있어요.</p>
+      </div>
+
+      <div class="progress" id="ocrProgress" hidden>
+        <div class="progress__bar"><span id="ocrBar"></span></div>
+        <p id="ocrMsg">글자 인식 준비 중</p>
+      </div>
+
+      <div class="datelist" id="dateList"></div>
+
+      <div class="textbox">
+        <div class="textbox__head">
+          <h3>인식된 글자</h3>
+          <div class="btn-row btn-row--tight">
+            <button class="btn btn--small" id="editTextBtn" type="button">직접 고치기</button>
+            <button class="btn btn--small" id="copyTextBtn" type="button">복사</button>
+          </div>
+        </div>
+        <div class="ocrtext" id="ocrText" tabindex="0"><span class="muted">아직 읽은 글자가 없습니다.</span></div>
+        <textarea id="ocrEdit" class="ocredit" rows="10" hidden placeholder="문서 글자를 붙여넣거나 고친 뒤 '다시 분석'을 누르세요."></textarea>
+        <div class="btn-row" id="editActions" hidden>
+          <button class="btn" id="cancelTextBtn" type="button">취소</button>
+          <button class="btn btn--primary" id="reanalyzeBtn" type="button">다시 분석</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. 날씨 에이전트 -->
+    <section class="sheet sheet--weather" id="weatherAgent" aria-labelledby="weatherTitle">
+      <div class="sheet__head">
+        <span class="step" aria-hidden="true">3</span>
+        <div>
+          <h2 id="weatherTitle">오늘 날씨</h2>
+          <p class="sheet__sub" id="weatherPlace">위치를 확인하는 중</p>
+        </div>
+        <span class="status" data-status="idle" id="weatherStatus">대기</span>
+      </div>
+
+      <form class="place-form" id="placeForm" autocomplete="off">
+        <label class="sr-only" for="placeInput">도시 이름</label>
+        <input id="placeInput" type="search" placeholder="도시 이름 (예: 부산, Tokyo)" />
+        <button class="btn" type="submit">검색</button>
+        <button class="btn" type="button" id="locateBtn">내 위치</button>
+        <ul class="place-results" id="placeResults" hidden></ul>
+      </form>
+
+      <div class="weather" id="weatherBody">
+        <p class="muted">날씨 정보를 불러오는 중입니다.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <p>사진과 글자는 이 브라우저 안에서만 처리되며 서버로 보내지 않습니다. 날씨는 Open-Meteo, 글자 인식은 Tesseract.js, 테두리 인식은 OpenCV.js를 사용합니다.</p>
+  </footer>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+  <script src="js/dates.js"></script>
+  <script src="js/scanner.js"></script>
+  <script src="js/ocr.js"></script>
+  <script src="js/weather.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
