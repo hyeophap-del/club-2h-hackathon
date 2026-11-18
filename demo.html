@@ -69,22 +69,6 @@
     .nav-grid .btn.feature { border-color: var(--primary); }
     .tools { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 
-    /* 발표 대본 */
-    .script { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; counter-reset: s; }
-    .script li {
-      counter-increment: s; display: grid; grid-template-columns: 28px 1fr; gap: 10px;
-      padding: 10px; border-radius: 12px; border: 1px solid var(--line); cursor: pointer; transition: border-color .15s, background .15s;
-    }
-    .script li:hover { border-color: var(--primary); }
-    .script li.on { border-color: var(--primary); background: var(--primary-weak); }
-    .script li::before {
-      content: counter(s); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
-      background: var(--primary); color: #fff; font-size: 0.85rem; font-weight: 700;
-    }
-    .script b { display: block; font-size: 0.95rem; }
-    .script .say { margin: 3px 0 0; font-size: 0.88rem; color: var(--muted); word-break: keep-all; }
-    .script .say q { color: var(--text); quotes: '“' '”'; }
-    .script .act { font-size: 0.78rem; color: var(--primary); margin-top: 4px; }
     .hint { font-size: 0.8rem; color: var(--muted); margin: 10px 0 0; }
 
     /* 좁은 화면: 위아래로 쌓기 */
@@ -137,42 +121,6 @@
           <button class="btn danger" id="resetBtn">🧹 데모 데이터 초기화</button>
         </div>
         <p class="hint">초기화는 할 일·문서·브리핑 기록만 지웁니다. 설정(API 키)은 그대로 남습니다.</p>
-      </section>
-
-      <section class="pnl">
-        <h2>발표 대본 <small>단계를 누르면 해당 화면으로</small></h2>
-        <ol class="script" id="script">
-          <li data-src="index.html">
-            <div><b>문제 제기</b>
-              <p class="say"><q>가정통신문은 일주일에 몇 장씩 오는데, 날짜는 적어 둬도 준비물·회신서·출발 시각은 결국 머릿속에 남깁니다.</q></p>
-              <div class="act">홈 화면 — 아직 비어 있는 상태를 보여 주기</div></div>
-          </li>
-          <li data-src="upload.html?demo=parent">
-            <div><b>사진 한 장 → 문서 인식 · 분석</b>
-              <p class="say"><q>기울어진 체험학습 안내문을 올리면 ① 반듯하게 펴서 PDF로 저장하고, ② Gemini가 단 한 번 읽어 날짜·장소·준비물·회신서·체험비를 뽑습니다.</q></p>
-              <div class="act">🏫 학부모 예시 — 펴진 문서, 근거 문장 강조</div></div>
-          </li>
-          <li data-src="upload.html?demo=parent">
-            <div><b>날씨 · 이동이 붙는 순간</b>
-              <p class="say"><q>③ 그날 비 예보를 보고 우산을 준비물에 자동으로 넣고, ④ 집에서 과학관까지 소요시간으로 출발 시각과 출발 알람을 잡습니다. AI가 제안하고, 저장은 제가 확인한 뒤에 합니다.</q></p>
-              <div class="act">확인 화면 아래로 스크롤 → 저장</div></div>
-          </li>
-          <li data-src="upload.html?demo=student">
-            <div><b>대학생: 마감에서 거꾸로</b>
-              <p class="say"><q>과제 공지는 마감일만 있으면 미루게 됩니다. 마감에서 거꾸로 "구현 → 실험 → 보고서 → 제출" 단계를 나눠 캘린더에 깝니다.</q></p>
-              <div class="act">🎓 대학생 예시 — 단계 계획 확인 후 저장</div></div>
-          </li>
-          <li data-src="calendar.html">
-            <div><b>캘린더 · .ics</b>
-              <p class="say"><q>모든 할 일이 캘린더에 들어가고, .ics로 휴대폰 기본 캘린더에 옮기면 탭이 닫혀도 알람이 옵니다.</q></p>
-              <div class="act">📅 캘린더 — 날짜 눌러 보기</div></div>
-          </li>
-          <li data-src="index.html">
-            <div><b>D-day 브리핑으로 마무리</b>
-              <p class="say"><q>전날 저녁과 당일 아침, 이 카드 한 장이면 됩니다. "내일 09:00 · 비 60% 우산 · 08:05 출발 · 도시락 ✅". 문서 → 일정이 아니라, 문서 → 그날의 행동 계획입니다.</q></p>
-              <div class="act">🏠 홈 — 오늘·내일 브리핑 카드, 🗂️ 문서함 검색</div></div>
-          </li>
-        </ol>
         <p class="hint">💡 예시 체험 모드는 API 키 없이 동작합니다. 시연 전 「데모 데이터 초기화」로 깨끗한 상태에서 시작하세요.</p>
       </section>
     </aside>
@@ -187,7 +135,6 @@
     const curUrl = document.getElementById('curUrl');
     const openTab = document.getElementById('openTab');
     const navBtns = document.querySelectorAll('#navGrid [data-src]');
-    const steps = document.querySelectorAll('#script li');
 
     // 앱 화면 바꾸기
     function go(src) {
@@ -203,10 +150,6 @@
     }
 
     navBtns.forEach((b) => b.addEventListener('click', () => go(b.dataset.src)));
-    steps.forEach((li) => li.addEventListener('click', () => {
-      steps.forEach((x) => x.classList.toggle('on', x === li));
-      go(li.dataset.src);
-    }));
 
     // 휴대폰 안에서 링크를 눌러 이동해도 현재 주소를 따라감 (같은 출처라 읽을 수 있음)
     app.addEventListener('load', () => {

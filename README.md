@@ -6,7 +6,7 @@ AI가 읽고 요약한 뒤 **할 일·마감일·장소·준비물**을 뽑아 �
 순수 HTML / CSS / JavaScript로 만들었고 서버가 필요 없습니다.
 
 - 🎤 **아이디어 소개**: `pitch.html`
-- 📱 **휴대폰 화면 시연**: `demo.html` (휴대폰 모양 테두리 + 발표 대본)
+- 📱 **휴대폰 화면 시연**: `demo.html` (휴대폰 모양 테두리 + 화면 이동 버튼)
 - 🧪 **키 없이 체험**: `upload.html?demo=parent`, `upload.html?demo=student`
 - 💡 **아이디어·방향성 정리**: `IDEAS.md`
 
@@ -74,7 +74,7 @@ calendar.html     월간 캘린더, 종류별 색, 준비물 체크, .ics 내보
 docs.html         문서함: 검색·필터, 스캔 이미지, PDF 다시 받기
 settings.html     키, 요약 언어, 출발지, 알림·아침 브리핑, 설치, 백업
 pitch.html        아이디어 소개 페이지
-demo.html         휴대폰 테두리 시연 페이지 + 발표 대본
+demo.html         휴대폰 테두리 시연 페이지 + 화면 이동·데이터 초기화
 sw.js, manifest.webmanifest, icon.svg   PWA(설치·오프라인·알림 클릭)
 css/style.css     공통 스타일 (다크 모드, 모바일 하단 탭)
 js/config.js      모델명, 언어, 기본 설정
