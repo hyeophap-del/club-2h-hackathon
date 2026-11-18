@@ -14,9 +14,9 @@
 
     <section id="step-upload">
       <div class="card">
-        <p class="muted">가정통신문, 체험학습 안내, 과제·장학금 공지 등을 찍거나 파일(JPG, PNG, PDF)로 올려 주세요. 여러 장이면 순서대로 추가하세요.</p>
+        <p class="muted">가정통신문, 체험학습 안내, 과제·장학금 공지 등을 찍거나 파일(JPG, PNG, PDF, 한글 HWPX)로 올려 주세요. 여러 장이면 순서대로 추가하세요.</p>
         <label class="dropzone" id="dropzone">
-          <input type="file" id="file" accept="image/*,application/pdf" multiple hidden />
+          <input type="file" id="file" accept="image/*,application/pdf,.pdf,.hwpx,.hwp" multiple hidden />
           <span>📷 눌러서 촬영하거나 파일 선택<br /><small>또는 여기로 끌어다 놓기 · 최대 5장</small></span>
         </label>
         <div id="thumbs" class="thumbs"></div>
@@ -117,6 +117,7 @@
       <label class="field">장소<input class="t-location" placeholder="예: 국립과천과학관" /></label>
       <div class="trip"></div>
       <div class="weather-line"></div>
+      <p class="warn-text conflict-line" hidden></p>
       <label class="field">준비물 (쉼표로 구분)<input class="t-items" /></label>
       <label class="field">세부 내용<textarea class="t-desc" rows="2"></textarea></label>
       <div class="steps" hidden>
@@ -129,7 +130,8 @@
 
   <script type="module">
     import { initPage } from './js/nav.js';
-    import { fileToInlineData, fingerprint, sharpness, BLUR_THRESHOLD } from './js/image.js';
+    import { fingerprint, sharpness, BLUR_THRESHOLD } from './js/image.js';
+    import { fileToPages } from './js/intake.js'; // 사진·PDF·한글(HWPX) → 페이지 목록
     import { analyzeDocument, analyzeLocally, canFallBackLocally, planTaskTrip } from './js/agents/orchestrator.js';
     import { DOC_TYPES, AUDIENCES } from './js/agents/analyzeAgent.js';
     import { cornersFromAI, defaultCorners, detectCornersCV, warpDocument, applyMode, downloadJpg, downloadPdf } from './js/agents/scanAgent.js';
@@ -142,6 +144,8 @@
     import { loadSample } from './js/demo.js';
     import { MAX_PAGES, LANGUAGES } from './js/config.js';
     import { esc, daysLeft } from './js/util.js';
+    import { conflictsWithExisting, describeConflict } from './js/schedule.js';
+    import { getTasks } from './js/storage.js';
 
     initPage('upload.html');
 
@@ -165,9 +169,13 @@
 
     // ---------- 파일 선택 ----------
     function renderThumbs() {
+      const thumbBody = (p, i) => p.inline.kind === 'text'
+        ? `<div class="text-thumb" title="${esc(p.inline.name)}"><span class="text-thumb-icon">📄</span><b>${esc(p.inline.name)}</b><small>글자 ${p.inline.text.length.toLocaleString()}자</small></div>`
+        : p.inline.mimeType?.startsWith('image/') ? `<img src="${p.inline.previewUrl}" alt="${i + 1}쪽" />`
+          : `<div class="pdf-thumb">📄<br>${esc(p.inline.name)}</div>`;
       $('#thumbs').innerHTML = pages.map((p, i) => `
         <div class="thumb">
-          ${p.inline.mimeType === 'application/pdf' ? `<div class="pdf-thumb">📄<br>${esc(p.inline.name)}</div>` : `<img src="${p.inline.previewUrl}" alt="${i + 1}쪽" />`}
+          ${thumbBody(p, i)}
           <span class="thumb-no">${i + 1}</span>
           ${p.sharp != null && p.sharp < BLUR_THRESHOLD ? '<span class="thumb-warn" title="흐릿함">흐림</span>' : ''}
           ${demo ? '' : `<button class="thumb-del" data-i="${i}" aria-label="삭제">✕</button>`}
@@ -183,17 +191,27 @@
 
     async function addFiles(files) {
       showError('');
+      const notes = [];
+      const btn = $('#analyze');
       for (const file of files) {
-        if (pages.length >= MAX_PAGES) { showError(`한 번에 ${MAX_PAGES}장까지 올릴 수 있습니다.`); break; }
+        if (pages.length >= MAX_PAGES) { notes.push(`한 번에 ${MAX_PAGES}장까지 올릴 수 있습니다.`); break; }
         try {
-          const inline = await fileToInlineData(file);
-          const sharp = inline.mimeType.startsWith('image/') ? await sharpness(inline.previewUrl) : null;
-          pages.push({ inline, sharp });
+          btn.disabled = true;
+          // PDF·HWPX는 도구를 불러오느라 잠깐 걸릴 수 있어 버튼에 진행 상황 표시
+          const list = await fileToPages(file, (msg) => { btn.textContent = msg; });
+          for (const inline of list) {
+            if (pages.length >= MAX_PAGES) { notes.push(`한 번에 ${MAX_PAGES}장까지 올릴 수 있습니다.`); break; }
+            // 흐림 검사는 사진에만 (글자 페이지는 해당 없음)
+            const sharp = inline.kind !== 'text' && inline.mimeType?.startsWith('image/') ? await sharpness(inline.previewUrl) : null;
+            pages.push({ inline, sharp });
+          }
         } catch (err) {
-          showError(err.message);
+          notes.push(err.message);
         }
       }
+      btn.textContent = '분석하기';
       renderThumbs();
+      if (notes.length) showError([...new Set(notes)].join(' '));
     }
 
     $('#file').addEventListener('change', (e) => { addFiles([...e.target.files]); e.target.value = ''; });
@@ -266,7 +284,7 @@
     async function prepareScans(setText) {
       for (let i = 0; i < pages.length; i++) {
         const p = pages[i];
-        if (p.inline.mimeType === 'application/pdf') continue;
+        if (p.inline.kind === 'text' || !p.inline.mimeType?.startsWith('image/')) continue; // 글자 페이지(HWPX·PDF 글자)는 펼 사진이 없음
         p.img = await loadImg(p.inline.previewUrl);
         const w = p.img.naturalWidth, h = p.img.naturalHeight;
         p.found = cornersFromAI(result.pages?.[i]?.corners, w, h);
@@ -413,8 +431,28 @@
       showWeather(card);
     }
 
+    // 이미 캘린더에 있는 일정과 시간이 겹치는지 (출발 시각까지 고려)
+    function showConflict(card) {
+      const box = card.querySelector('.conflict-line');
+      const m = meta.get(card) || {};
+      const draft = {
+        id: 'draft',
+        kind: card.querySelector('.t-kind').value,
+        title: card.querySelector('.t-title').value.trim() || '이 일정',
+        dueDate: card.querySelector('.t-date').value,
+        dueTime: card.querySelector('.t-time').value || null,
+        travel: m.trip ? { minutes: m.trip.travelMinutes, departAt: m.trip.departAt } : null,
+      };
+      const hits = draft.dueDate ? conflictsWithExisting([draft], getTasks())[0] || [] : [];
+      box.hidden = !hits.length;
+      box.innerHTML = hits.length
+        ? `⚠️ <b>기존 일정과 시간 겹침</b> — ${hits.map((o) => esc(describeConflict(draft, o))).join(' ')}`
+        : '';
+    }
+
     // ③ 날씨 (장소가 있으면 그 장소 기준)
     async function showWeather(card) {
+      showConflict(card);
       const box = card.querySelector('.weather-line');
       const dueDate = card.querySelector('.t-date').value;
       const m = meta.get(card);
@@ -462,8 +500,11 @@
       if (t.title && !t.due_date) node.querySelector('.t-nodate').hidden = false;
       if (t.confidence === 'low') { node.querySelector('.t-lowconf').hidden = false; node.classList.add('lowconf'); }
       if (t.confidence === 'low' && result?.local) node.querySelector('.t-lowconf').textContent = '🟡 키 없이 글자 인식으로 찾은 날짜입니다. 할 일 이름·종류를 원문과 비교해 고쳐 주세요.';
+      // 코드 검증(validateResult)이 찾은 문제: 요일 불일치, 읽을 수 없는 날짜·시간, 너무 먼 날짜
+      else if (t.warning) node.querySelector('.t-lowconf').textContent = `🟡 ${t.warning}`;
       renderSteps(node, t.steps || []);
       node.querySelector('.t-location').addEventListener('change', () => computeTrip(node));
+      node.querySelector('.t-kind').addEventListener('change', () => showConflict(node));
       node.querySelector('.t-date').addEventListener('change', () => (meta.get(node).place ? computeTrip(node) : showWeather(node)));
       node.querySelector('.t-time').addEventListener('change', () => (meta.get(node).place ? computeTrip(node) : showWeather(node)));
       $('#task-list').appendChild(node);

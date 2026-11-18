@@ -33,9 +33,9 @@ async function compressImage(file) {
   return canvas.toDataURL('image/jpeg', JPEG_QUALITY);
 }
 
-// 같은 문서를 다시 올렸는지 확인하기 위한 지문(SHA-256)
+// 같은 문서를 다시 올렸는지 확인하기 위한 지문(SHA-256). 글자 페이지(HWPX·PDF 글자)는 글자로
 export async function fingerprint(pages) {
-  const text = pages.map((p) => p.data).join('|');
+  const text = pages.map((p) => p.data || p.text || '').join('|');
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }

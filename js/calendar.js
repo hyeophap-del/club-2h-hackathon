@@ -1,5 +1,6 @@
 // 월간 달력 그리기
 import { toDateKey, todayKey, esc } from './util.js';
+import { findAllConflicts } from './schedule.js';
 
 const WEEK_HEADER = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -11,6 +12,9 @@ export function renderMonth(container, { year, month, tasks, selected, onSelect 
     if (!t.dueDate) continue;
     (byDate[t.dueDate] ||= []).push(t);
   }
+  // 시간이 겹치는 일정이 있는 날짜 (칸에 ⚠ 표시)
+  const conflicts = findAllConflicts(tasks);
+  const conflictDays = new Set(tasks.filter((t) => conflicts.has(t.id)).map((t) => t.dueDate));
 
   const first = new Date(year, month, 1);
   const start = new Date(year, month, 1 - first.getDay()); // 첫 주 일요일
@@ -36,7 +40,7 @@ export function renderMonth(container, { year, month, tasks, selected, onSelect 
     const more = items.length > 3 ? `<span class="more">+${items.length - 3}</span>` : '';
 
     html += `<button type="button" class="${classes.join(' ')}" data-date="${key}">
-      <span class="num">${d.getDate()}</span>${chips}${more}</button>`;
+      <span class="num">${d.getDate()}</span>${conflictDays.has(key) ? '<span class="cal-conflict" title="시간 겹침" aria-label="시간 겹침">⚠</span>' : ''}${chips}${more}</button>`;
   }
 
   container.innerHTML = html;

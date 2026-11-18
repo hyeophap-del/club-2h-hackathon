@@ -240,24 +240,37 @@ function keyPoints(lines, title) {
     .slice(0, 6);
 }
 
-// pages: [{mimeType, data, previewUrl}] / onStatus(text): 진행 상황 표시
+// pages: 사진 [{mimeType, data, previewUrl}] 또는 글자 페이지 [{kind: 'text', text, name}] (js/intake.js)
+//   글자 페이지(HWPX, 글자가 있는 PDF)는 글자 인식 없이 바로 날짜 분석, 스캔본 PDF는 사진으로 바뀌어 와서 사진처럼 읽음
+// onStatus(text): 진행 상황 표시
 export async function analyzeLocally(pages, onStatus) {
   const t0 = performance.now();
-  const images = pages.map((p, i) => ({ p, i })).filter(({ p }) => p.mimeType?.startsWith('image/'));
-  const skipped = pages.length - images.length;
-  if (!images.length) {
-    throw new Error('키 없이 간단 분석은 사진(JPG·PNG)만 읽을 수 있습니다. PDF는 설정에서 Gemini 키를 넣어 분석해 주세요.');
+  const isText = (p) => p.kind === 'text' && typeof p.text === 'string';
+  const images = pages.map((p, i) => ({ p, i })).filter(({ p }) => !isText(p) && p.mimeType?.startsWith('image/'));
+  const textCount = pages.filter(isText).length;
+  const skipped = pages.length - images.length - textCount;
+  if (!images.length && !textCount) {
+    throw new Error('스캔한 PDF(글자 없는 PDF)는 Gemini 키가 있어야 읽을 수 있습니다. 설정에서 키를 넣거나, 사진(JPG·PNG)으로 찍어 올려 주세요.');
   }
 
-  onStatus?.('글자 인식 도구 준비 중… (처음 한 번은 수십 초 걸릴 수 있어요)');
-  const workerReady = getWorker(); // 테두리 찾는 동안 함께 내려받기
-  workerReady.catch(() => {});
+  let workerReady = null;
+  if (images.length) {
+    onStatus?.('글자 인식 도구 준비 중… (처음 한 번은 수십 초 걸릴 수 있어요)');
+    workerReady = getWorker(); // 테두리 찾는 동안 함께 내려받기
+    workerReady.catch(() => {});
+  }
 
   const resultPages = pages.map(() => ({ corners: null, blurry: false }));
   const timings = {};
   const texts = [];
+  // 글자 페이지는 올린 순서대로 바로 씀 (사진 글자와 섞일 때도 순서 유지)
+  const textAt = new Map(pages.map((p, i) => [i, isText(p) ? tidy(p.text) : null]));
+  const flushTextsBefore = (limit) => {
+    for (const [i, t] of textAt) if (i < limit && t != null) { texts.push(t); textAt.delete(i); }
+  };
   for (let k = 0; k < images.length; k++) {
     const { p, i } = images[k];
+    flushTextsBefore(i);
     const label = images.length > 1 ? `${k + 1}/${images.length}쪽 ` : '';
     const img = await loadImg(p.previewUrl || `data:${p.mimeType};base64,${p.data}`);
     const w = img.naturalWidth, h = img.naturalHeight;
@@ -282,22 +295,29 @@ export async function analyzeLocally(pages, onStatus) {
     timings.ocr = (timings.ocr || 0) + Math.round(performance.now() - to);
     texts.push(tidy(data.text || ''));
   }
+  flushTextsBefore(Infinity);
+  if (textCount) onStatus?.('문서 글자에서 날짜 찾는 중…');
 
   const text = texts.join('\n\n');
   const lines = text.split('\n').map(squash).filter(Boolean);
   if (!lines.length) {
-    throw new Error('사진에서 글자를 읽지 못했습니다. 밝은 곳에서 문서가 화면을 채우도록 다시 찍어 주세요.');
+    throw new Error(images.length
+      ? '사진에서 글자를 읽지 못했습니다. 밝은 곳에서 문서가 화면을 채우도록 다시 찍어 주세요.'
+      : '문서에서 글자를 찾지 못했습니다.');
   }
   const analysis = analyzeDates(text, new Date());
   const title = guessTitle(lines);
   const { doc_type, audience } = guessType(text, analysis.docType, title);
   const tasks = toTasks(text, analysis, title);
+  // 글자 페이지만 있었으면 "글자 인식(OCR)"이 아니라 문서 글자를 그대로 읽은 것
+  const how = images.length ? '글자 인식으로' : '문서 글자에서';
+  if (!images.length) tasks.forEach((t) => { t.description = t.description.replace('글자 인식으로 찾은', '문서 글자에서 찾은'); });
 
   const summary = analysis.summary
-    ? `${analysis.summary} (키 없이 글자 인식으로 날짜만 찾은 간단 분석입니다.)`
-    : `${lines.slice(0, 2).join(' ')} — 문서에서 날짜를 찾지 못했습니다. (키 없이 글자 인식으로 읽은 간단 분석입니다.)`;
+    ? `${analysis.summary} (키 없이 ${how} 날짜만 찾은 간단 분석입니다.)`
+    : `${lines.slice(0, 2).join(' ')} — 문서에서 날짜를 찾지 못했습니다. (키 없이 ${how} 읽은 간단 분석입니다.)`;
   const points = keyPoints(lines, title);
-  if (skipped) points.push(`PDF ${skipped}개는 키 없이 읽을 수 없어 건너뛰었습니다.`);
+  if (skipped) points.push(`스캔한 PDF ${skipped}개는 Gemini 키가 있어야 읽을 수 있어 건너뛰었습니다.`);
 
   return {
     doc_type,

@@ -1,13 +1,13 @@
 // 서비스 워커: 홈 화면에 설치(PWA), 오프라인에서도 화면 열기, 알림 클릭 처리
-const CACHE = 'doc-assistant-v4';
+const CACHE = 'doc-assistant-v6';
 const ASSETS = [
   './', 'index.html', 'upload.html', 'calendar.html', 'docs.html', 'settings.html',
   'css/style.css', 'icon.svg', 'manifest.webmanifest',
   'js/config.js', 'js/util.js', 'js/storage.js', 'js/image.js', 'js/calendar.js', 'js/notify.js', 'js/nav.js',
-  'js/archive.js', 'js/ics.js', 'js/demo.js', 'js/cornerEditor.js',
+  'js/archive.js', 'js/ics.js', 'js/demo.js', 'js/cornerEditor.js', 'js/intake.js',
   'js/agents/orchestrator.js', 'js/agents/analyzeAgent.js', 'js/agents/scanAgent.js',
   'js/agents/weatherAgent.js', 'js/agents/routeAgent.js',
-  'js/agents/localAnalyzer.js', 'js/dates.js', // 키 없는 간단 분석 (Tesseract·OpenCV는 CDN이라 캐시 안 함)
+  'js/agents/localAnalyzer.js', 'js/agents/validateResult.js', 'js/dates.js', 'js/schedule.js', // 키 없는 간단 분석 (Tesseract·OpenCV는 CDN이라 캐시 안 함)
 ];
 
 self.addEventListener('install', (e) => {

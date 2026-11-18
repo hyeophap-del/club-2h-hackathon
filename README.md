@@ -54,15 +54,15 @@ LLM 에이전트 4개가 각자 AI를 부르면 무료 사용량이 4배로 들�
 ## 기능
 | 구분 | 기능 |
 |---|---|
-| ① 문서 인식 | 기울어진 사진 자동 펴기(AI 모서리, 없으면 OpenCV 테두리 찾기), 모서리 손으로 조정, 스캔 모드(컬러·회색조·흑백), 여러 장 → PDF 한 파일, JPG 저장, 흐린 사진 경고 |
-| 키 없이 | Gemini 키가 없거나 한도 초과 시 간단 분석: 브라우저 안 글자 인식(한국어+영어) → 날짜·시간·마감/행사/기간 분류, 상대 날짜("내일", "다음 주 수요일"), 문의 전화번호 (사진만, PDF 제외) |
-| ② 분석 | 문서 종류·대상(학부모/대학생) 자동 판별, 요약, 할 일 종류(참석/마감/회신/납부/준비), 근거 문장, 불확실한 항목 노란 표시 |
+| ① 문서 인식 | PDF는 글자 레이어를 바로 읽고(글자 없는 스캔 PDF는 Gemini로), 한글 HWPX 문서도 글자를 바로 읽음 (구형 HWP는 HWPX·PDF로 저장 안내), 기울어진 사진 자동 펴기(AI 모서리, 없으면 OpenCV 테두리 찾기), 모서리 손으로 조정, 스캔 모드(컬러·회색조·흑백), 여러 장 → PDF 한 파일, JPG 저장, 흐린 사진 경고 |
+| 키 없이 | Gemini 키가 없거나 한도 초과 시 간단 분석: 브라우저 안 글자 인식(한국어+영어) → 날짜·시간·마감/행사/기간 분류, 상대 날짜("내일", "다음 주 수요일"), 문의 전화번호 (사진·HWPX·글자 있는 PDF, 스캔 PDF 제외) |
+| ② 분석 | 문서 종류·대상(학부모/대학생) 자동 판별, 요약, 할 일 종류(참석/마감/회신/납부/준비), 근거 문장, 불확실한 항목 노란 표시, 사진·PDF·글자 페이지(HWPX/PDF 글자) 함께 분석, 문서 속 지시문 무시(프롬프트 주입 방어), 코드 검증(날짜·시간 형식, 날짜와 요일 불일치·너무 먼 날짜 경고), 영수증처럼 할 일이 없는 문서도 처리, 90초 응답 시간 제한 |
 | 학부모 | 회신서·동의서 감지 → 회신 할 일 자동 생성, 납부 정보(금액·계좌 복사), 문의처 전화 연결 |
 | 대학생 | 마감에서 거꾸로 세운 단계 계획(조사 → 초안 → 검토)을 캘린더에 함께 등록 |
 | ③ 날씨 | 홈의 오늘 날씨(내 위치 지역 이름 표시, 앞으로 6시간), 할 일 날짜·장소·시각의 예보, 미세먼지·초미세먼지(환경부 기준 등급), 자외선, 비 오면 우산·미세먼지 나쁘면 마스크를 준비물에 추가, 옷차림 조언 |
 | ④ 이동 | 장소 검색, 소요시간, 출발 시각, 출발 10분 전·출발 알람, 당일 아침 재계산, 대중교통 길찾기 링크 |
 | 알림 | 하루 전·당일 아침·1시간 전 알람, 매일 아침 브리핑, 화면 내 알림, `.ics` 내보내기(웹을 닫아도 휴대폰 알람) |
-| 관리 | 오늘·내일 브리핑 카드(준비물 체크리스트), 월간 캘린더, 문서함 검색·필터, 중복 문서 감지, 백업/복원 |
+| 관리 | 오늘·내일 브리핑 카드(준비물 체크리스트), 월간 캘린더, 문서함 검색·필터, 중복 문서 감지, 백업/복원, 일정 시간 겹침 경고(홈·캘린더, 이동 시간 포함) |
 | 접근성 | 요약 언어 선택(쉬운 한국어, English, 中文, Tiếng Việt), PWA 설치, 다크 모드, 휴대폰 하단 탭 바 |
 
 ## 한계 (알고 쓰기)
@@ -89,6 +89,7 @@ js/util.js        날짜·이스케이프 도우미
 js/storage.js     localStorage 저장 (다른 파일은 이것만 사용)
 js/archive.js     IndexedDB 스캔 이미지 보관
 js/image.js       이미지 압축, 흐림 측정, 중복 지문
+js/intake.js      파일 받기: 사진 / PDF 글자 레이어(pdf.js) / 한글 HWPX 글자(JSZip) → 분석용 페이지
 js/cornerEditor.js  모서리 끌어서 조정
 js/calendar.js    달력 그리기
 js/notify.js      알람 계산·발송, 아침 브리핑
@@ -96,13 +97,17 @@ js/ics.js         .ics 내보내기
 js/demo.js        예시 문서(캔버스로 그린 사진) + 미리 만든 분석 결과
 js/nav.js         공통 메뉴, 마감 배너, 서비스 워커 등록
 js/agents/orchestrator.js   메인 에이전트
-js/agents/analyzeAgent.js   ② Gemini 호출·프롬프트·스키마
+js/agents/analyzeAgent.js   ② Gemini 호출·프롬프트·스키마 (규칙은 systemInstruction, 문서 내용은 데이터로만)
+js/agents/validateResult.js ② 분석 결과 코드 검증 (날짜·시간 형식, 요일 불일치, 너무 먼 날짜)
 js/agents/scanAgent.js      ① 원근 보정·PDF
 js/agents/weatherAgent.js   ③ 날씨·조언
 js/agents/routeAgent.js     ④ 장소·소요시간·출발 시각
 js/agents/localAnalyzer.js  ② 키 없는 간단 분석 (Tesseract 글자 인식 + 날짜 규칙, 같은 결과 모양)
 js/dates.js       규칙 기반 한국어 날짜 분석기 (마감/행사/기간/만료/발행, 상대 날짜, 시간)
+js/schedule.js    일정 시간 겹침 찾기 (출발~시작+1시간 가정, 업로드 화면용 conflictsWithExisting)
 tests/dates.test.js  날짜 분석기 테스트 (Node)
+tests/validate.test.js  분석 결과 검증 테스트 (Node 또는 브라우저)
+tests/schedule.test.js  시간 겹침 테스트 (Node)
 package.json      Node 테스트용 ("type": "module"만 지정, 빌드 없음)
 ```
 
@@ -110,11 +115,15 @@ package.json      Node 테스트용 ("type": "module"만 지정, 빌드 없음)
 Node 18 이상에서 저장소 루트에서 실행합니다 (설치할 패키지 없음).
 ```
 node tests/dates.test.js     # 또는 npm test
+node tests/validate.test.js  # 분석 결과 검증: 요일 불일치, 없는 날짜·틀린 시간, 문서 속 지시문, 영수증(할 일 0개)
 ```
 
 ### 만든 사람
 키 없는 간단 분석(글자 인식·날짜 분석), OpenCV 테두리 찾기, 회색조·흑백 스캔 모드는
 팀원 leokiller6646의 `dw` 브랜치 구현을 옮겨 온 것입니다.
+문서 속 지시문 방어, 분석 결과 코드 검증(요일 불일치 등), 응답 시간 제한은 팀원 may0ne2e의 `sex-extract` 브랜치 구현을 참고/이식했습니다.
+PDF 글자 레이어·한글(HWPX) 글자 읽기는 팀원 may0ne2e의 `sex-extract` 브랜치 구현을 참고/이식했습니다.
+일정 시간 겹침 경고는 팀원 may0ne2e의 `sex-extract` 브랜치 구현을 참고/이식했습니다.
 
 ## 데이터 형식
 ```js
@@ -124,6 +133,7 @@ tasks: [{ id, docId, group, kind: 'event'|'deadline'|'reply'|'payment'|'prep'|'s
           title, description, dueDate: 'YYYY-MM-DD', dueTime: 'HH:MM'|null,
           location, place: {name, address, lat, lng}|null, travel: {minutes, basis, departAt, mapLink}|null,
           items[], itemsDone[], sourceText, done, reminders: [{ at, notified, label? }] }]
+// 분석 결과(화면용) tasks[]에는 confidence: 'high'|'low', warning: string|null(코드 검증 경고)이 붙습니다
 settings: { apiKey, model, language, remindDayBefore, remindMorningOf, morningHour, morningBriefing,
             kakaoJsKey, kakaoRestKey, home, travelBuffer }
 // IndexedDB 'doc-assistant' / 'pages' : docId → JPEG Blob[]

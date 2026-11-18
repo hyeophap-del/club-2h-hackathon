@@ -55,6 +55,7 @@
     import { buildBriefing, refreshTodayTrips } from './js/agents/orchestrator.js';
     import { DOC_TYPES, TASK_KINDS } from './js/agents/analyzeAgent.js';
     import { showToast } from './js/notify.js';
+    import { findAllConflicts, describeConflict } from './js/schedule.js';
 
     initPage('index.html');
     const $ = (s) => document.querySelector(s);
@@ -114,11 +115,17 @@
       }));
     }
 
-    function taskRow(t) {
+    // 시간 겹침 칩 (js/schedule.js)
+    function conflictChip(t, conflicts) {
+      const others = conflicts?.get(t.id);
+      return others?.length ? ` <span class="conflict-chip" title="${esc(others.map((o) => describeConflict(t, o)).join(' '))}">⚠️ 시간 겹침</span>` : '';
+    }
+
+    function taskRow(t, conflicts) {
       return `<div class="card task" data-id="${t.id}">
         <input type="checkbox" class="done-toggle" aria-label="완료" />
         <div class="task-body">
-          <div class="task-title">${kindChip(t.kind)} ${esc(t.title)} <span class="badge ${daysLeft(t.dueDate) <= 1 ? 'hot' : ''}">${dDayLabel(t.dueDate)}</span></div>
+          <div class="task-title">${kindChip(t.kind)} ${esc(t.title)} <span class="badge ${daysLeft(t.dueDate) <= 1 ? 'hot' : ''}">${dDayLabel(t.dueDate)}</span>${conflictChip(t, conflicts)}</div>
           <div class="muted">${esc(formatDue(t))}${t.travel?.departAt ? ` · ⏰ ${hhmm(new Date(t.travel.departAt))} 출발` : ''}</div>
         </div>
         <a class="btn small" href="calendar.html?date=${t.dueDate}">보기</a>
@@ -126,13 +133,15 @@
     }
 
     function render() {
-      const open = getTasks().filter((t) => !t.done && t.dueDate)
+      const all = getTasks();
+      const conflicts = findAllConflicts(all);
+      const open = all.filter((t) => !t.done && t.dueDate)
         .sort((a, b) => (a.dueDate + (a.dueTime || '')).localeCompare(b.dueDate + (b.dueTime || '')));
       const upcoming = open.filter((t) => daysLeft(t.dueDate) >= 0 && daysLeft(t.dueDate) <= 7);
       const overdue = open.filter((t) => daysLeft(t.dueDate) < 0);
 
-      $('#upcoming').innerHTML = upcoming.length ? upcoming.map(taskRow).join('') : '<p class="muted">일주일 안에 마감되는 할 일이 없습니다.</p>';
-      $('#overdue').innerHTML = overdue.length ? overdue.map(taskRow).join('') : '<p class="muted">없습니다 👍</p>';
+      $('#upcoming').innerHTML = upcoming.length ? upcoming.map((t) => taskRow(t, conflicts)).join('') : '<p class="muted">일주일 안에 마감되는 할 일이 없습니다.</p>';
+      $('#overdue').innerHTML = overdue.length ? overdue.map((t) => taskRow(t)).join('') : '<p class="muted">없습니다 👍</p>';
 
       document.querySelectorAll('.done-toggle').forEach((cb) => {
         cb.addEventListener('change', () => {

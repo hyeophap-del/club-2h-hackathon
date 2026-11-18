@@ -60,6 +60,7 @@
     import { downloadIcs } from './js/ics.js';
     import { buildReminders } from './js/notify.js';
     import { departTime } from './js/agents/routeAgent.js';
+    import { findAllConflicts, describeConflict } from './js/schedule.js';
     import { esc, todayKey, toDate, formatDue, dDayLabel } from './js/util.js';
 
     initPage('calendar.html');
@@ -90,12 +91,15 @@
         $('#day-tasks').innerHTML = '<p class="muted">이 날짜에 할 일이 없습니다.</p>';
         return;
       }
+      const conflicts = findAllConflicts(getTasks());
       $('#day-tasks').innerHTML = tasks.map((t) => {
         const doc = t.docId ? getDoc(t.docId) : null;
+        const others = conflicts.get(t.id) || [];
         return `<div class="card task ${t.done ? 'done' : ''}" data-id="${t.id}">
           <input type="checkbox" class="done-toggle" ${t.done ? 'checked' : ''} aria-label="완료" />
           <div class="task-body">
-            <div class="task-title">${TASK_KINDS[t.kind] ? `<span class="kind ${TASK_KINDS[t.kind].cls}">${TASK_KINDS[t.kind].label}</span>` : ""} ${esc(t.title)} <span class="badge">${dDayLabel(t.dueDate)}</span></div>
+            <div class="task-title">${TASK_KINDS[t.kind] ? `<span class="kind ${TASK_KINDS[t.kind].cls}">${TASK_KINDS[t.kind].label}</span>` : ""} ${esc(t.title)} <span class="badge">${dDayLabel(t.dueDate)}</span>${others.length ? ' <span class="conflict-chip">⚠️ 시간 겹침</span>' : ''}</div>
+            ${others.length ? `<div class="conflict-warn">${others.map((o) => esc(describeConflict(t, o))).join('<br />')}</div>` : ''}
             <div class="muted">${esc(formatDue(t))}${doc ? ` · 📄 ${esc(doc.title)}` : ''}</div>
             ${t.place || t.location ? `<div>📍 ${esc(t.place?.name || t.location)}${t.travel?.departAt ? ` · ⏰ ${new Date(t.travel.departAt).toTimeString().slice(0, 5)} 출발 (${t.travel.minutes}분)` : ''}${t.travel?.mapLink ? ` · <a href="${t.travel.mapLink}" target="_blank" rel="noopener">길찾기</a>` : ''}</div>` : ''}
             ${t.items?.length ? `<div class="checklist">🎒 ${t.items.map((i) => `<label class="check-item ${(t.itemsDone || []).includes(i) ? 'on' : ''}"><input type="checkbox" data-item="${esc(i)}" ${(t.itemsDone || []).includes(i) ? 'checked' : ''} /> ${esc(i)}</label>`).join('')}</div>` : ''}
