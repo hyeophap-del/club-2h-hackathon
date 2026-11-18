@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>설정 - 문서 비서</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <main class="container">
+    <h1>설정</h1>
+
+    <section class="card">
+      <h2>Gemini API 키</h2>
+      <p class="muted">
+        <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Google AI Studio</a>에서 무료 키를 발급받아 넣어 주세요.
+        키는 이 브라우저에만 저장되며 다른 곳으로 보내지지 않습니다(분석 요청 시 Google에만 전송).
+      </p>
+      <label class="field">API 키<input type="password" id="api-key" autocomplete="off" placeholder="AIza..." /></label>
+      <label class="field">모델 이름<input id="model" /></label>
+      <label class="field">요약 언어 <small>(다문화 가정·유학생·쉬운 말이 필요한 분)</small><select id="language"></select></label>
+      <div class="row-gap">
+        <button class="btn" id="toggle-key">보기</button>
+        <button class="btn primary" id="save-key">저장</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>카카오 (장소 검색 · 이동 시간)</h2>
+      <p class="muted">
+        <a href="https://developers.kakao.com/console/app" target="_blank" rel="noopener">카카오 개발자 콘솔</a>에서 앱을 만들고
+        ① <b>JavaScript 키</b> ② <b>REST API 키</b>를 복사해 넣어 주세요.
+        앱 설정 → 플랫폼 → Web에 지금 접속한 주소(<code id="origin-url"></code>)를 등록해야 지도가 동작합니다.
+        앱 설정에서 <b>카카오맵</b> 사용 설정도 켜 주세요.
+      </p>
+      <label class="field">JavaScript 키<input type="password" id="kakao-js" autocomplete="off" /></label>
+      <label class="field">REST API 키<input type="password" id="kakao-rest" autocomplete="off" /></label>
+      <button class="btn primary" id="save-kakao">저장</button>
+
+      <h3>출발지</h3>
+      <p class="muted">비워 두면 현재 위치에서 출발하는 것으로 계산합니다. 현재: <b id="home-label"></b></p>
+      <div class="row-gap">
+        <label class="field">집 주소 또는 장소 이름<input id="home-query" placeholder="예: 서울시 마포구 월드컵로 1" /></label>
+        <button class="btn" id="set-home">찾아서 저장</button>
+        <button class="btn" id="clear-home">지우기</button>
+      </div>
+      <label class="field">여유 시간(분)<input type="number" id="buffer" min="0" max="120" step="5" /></label>
+    </section>
+
+    <section class="card">
+      <h2>알림</h2>
+      <p>현재 상태: <b id="perm"></b></p>
+      <button class="btn" id="ask-perm">알림 허용하기</button>
+      <button class="btn" id="test">테스트 알림</button>
+      <p class="notice">이 사이트는 서버가 없어서 <b>페이지가 열려 있을 때만</b> 알림이 옵니다. 컴퓨터에서는 탭을 하나 열어 두세요.</p>
+
+      <h3>기본 알람 시점</h3>
+      <label class="check"><input type="checkbox" id="day-before" /> 마감 하루 전</label>
+      <label class="check"><input type="checkbox" id="morning-of" /> 마감 당일 아침</label>
+      <label class="field">아침 알람 시각
+        <select id="morning-hour"></select>
+      </label>
+      <label class="check"><input type="checkbox" id="briefing" /> 매일 아침 브리핑 (오늘 할 일 + 날씨)</label>
+      <p class="muted">마감 시간이 있는 할 일은 1시간 전에도, 장소가 있는 일정은 출발 10분 전·출발 시각에도 알려 줍니다. 바꾼 설정은 새로 저장하는 할 일부터 적용됩니다.</p>
+
+      <h3>웹을 닫아도 알람 받기</h3>
+      <p class="muted">할 일을 .ics 파일로 받아 열면 휴대폰·PC 기본 캘린더에 일정과 알람이 들어갑니다.</p>
+      <button class="btn" id="export-ics">📲 남은 할 일 전체를 캘린더 파일로 받기</button>
+
+      <h3>앱처럼 설치하기</h3>
+      <p class="muted">안드로이드 크롬: 메뉴 ⋮ → <b>홈 화면에 추가</b> · 아이폰 사파리: 공유 버튼 → <b>홈 화면에 추가</b> (아이폰은 이렇게 설치해야 알림을 받을 수 있습니다)</p>
+      <button class="btn" id="install" hidden>📲 지금 설치하기</button>
+    </section>
+
+    <section class="card">
+      <h2>데이터</h2>
+      <p class="muted">데이터는 이 브라우저에만 저장됩니다. 다른 기기로 옮기려면 백업 파일을 사용하세요.</p>
+      <div class="row-gap">
+        <button class="btn" id="export">백업 파일 받기</button>
+        <label class="btn">백업 불러오기<input type="file" id="import" accept="application/json" hidden /></label>
+        <button class="btn danger" id="clear">전체 삭제</button>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { initPage } from './js/nav.js';
+    import { getSettings, saveSettings, exportAll, importAll, clearAll } from './js/storage.js';
+    import { notificationSupported, requestPermission, notifyUser } from './js/notify.js';
+    import { LANGUAGES } from './js/config.js';
+    import { downloadIcs } from './js/ics.js';
+    import { getTasks } from './js/storage.js';
+    import { DEFAULT_SETTINGS } from './js/config.js';
+    import { searchPlace } from './js/agents/routeAgent.js';
+
+    initPage('settings.html');
+    const $ = (s) => document.querySelector(s);
+    const s = getSettings();
+
+    $('#api-key').value = s.apiKey;
+    $('#model').value = s.model;
+    $('#save-key').addEventListener('click', () => {
+      saveSettings({ apiKey: $('#api-key').value.trim(), model: $('#model').value.trim() || DEFAULT_SETTINGS.model });
+      alert('저장했습니다.');
+      location.reload();
+    });
+    $('#toggle-key').addEventListener('click', () => {
+      const input = $('#api-key');
+      input.type = input.type === 'password' ? 'text' : 'password';
+    });
+
+    // 카카오
+    $('#origin-url').textContent = location.origin;
+    $('#kakao-js').value = s.kakaoJsKey;
+    $('#kakao-rest').value = s.kakaoRestKey;
+    $('#save-kakao').addEventListener('click', () => {
+      saveSettings({ kakaoJsKey: $('#kakao-js').value.trim(), kakaoRestKey: $('#kakao-rest').value.trim() });
+      alert('저장했습니다.');
+      location.reload(); // 새 키로 지도 SDK를 다시 불러오기 위해
+    });
+    const showHome = () => {
+      const h = getSettings().home;
+      $('#home-label').textContent = h ? `${h.name} (${h.address})` : '현재 위치 사용';
+    };
+    showHome();
+    $('#set-home').addEventListener('click', async () => {
+      const q = $('#home-query').value.trim();
+      if (!q) return;
+      try {
+        const place = await searchPlace(q);
+        if (!place) { alert('찾을 수 없습니다. 주소를 더 정확히 입력해 주세요.'); return; }
+        saveSettings({ home: { ...place, name: '집' } });
+        showHome();
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+    $('#clear-home').addEventListener('click', () => { saveSettings({ home: null }); showHome(); });
+    $('#buffer').value = s.travelBuffer;
+    $('#buffer').addEventListener('change', (e) => saveSettings({ travelBuffer: Math.max(0, Number(e.target.value) || 0) }));
+
+    const permLabel = { granted: '허용됨 ✅', denied: '차단됨 (브라우저 주소창 자물쇠 아이콘에서 변경)', default: '아직 묻지 않음' };
+    function showPerm() {
+      $('#perm').textContent = notificationSupported() ? permLabel[Notification.permission] : '이 브라우저는 알림을 지원하지 않습니다 (아이폰은 홈 화면에 추가 필요)';
+    }
+    showPerm();
+    $('#ask-perm').addEventListener('click', async () => { await requestPermission(); showPerm(); });
+    $('#test').addEventListener('click', () => {
+      if (notificationSupported() && Notification.permission === 'granted') {
+        notifyUser('테스트 알림', '알림이 정상적으로 동작합니다.', 'settings.html', 'test');
+      } else {
+        alert('먼저 알림을 허용해 주세요.');
+      }
+    });
+
+    $('#day-before').checked = s.remindDayBefore;
+    $('#morning-of').checked = s.remindMorningOf;
+    $('#morning-hour').innerHTML = Array.from({ length: 24 }, (_, h) =>
+      `<option value="${h}" ${h === s.morningHour ? 'selected' : ''}>${h}시</option>`).join('');
+    $('#day-before').addEventListener('change', (e) => saveSettings({ remindDayBefore: e.target.checked }));
+    $('#morning-of').addEventListener('change', (e) => saveSettings({ remindMorningOf: e.target.checked }));
+    $('#morning-hour').addEventListener('change', (e) => saveSettings({ morningHour: Number(e.target.value) }));
+    $('#briefing').checked = s.morningBriefing;
+    $('#briefing').addEventListener('change', (e) => saveSettings({ morningBriefing: e.target.checked }));
+
+    // 요약 언어
+    $('#language').innerHTML = Object.entries(LANGUAGES)
+      .map(([k, v]) => `<option value="${k}" ${k === s.language ? 'selected' : ''}>${v.label}</option>`).join('');
+    $('#language').addEventListener('change', (e) => saveSettings({ language: e.target.value }));
+
+    // .ics 내보내기
+    $('#export-ics').addEventListener('click', () => {
+      const list = getTasks().filter((t) => !t.done && t.dueDate);
+      if (!list.length) { alert('내보낼 할 일이 없습니다.'); return; }
+      downloadIcs(list, '문서비서-할일');
+    });
+
+    // 앱 설치 (크롬이 설치 가능하다고 알려줄 때만 버튼 표시)
+    let installEvent = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      installEvent = e;
+      $('#install').hidden = false;
+    });
+    $('#install').addEventListener('click', async () => {
+      if (!installEvent) return;
+      installEvent.prompt();
+      await installEvent.userChoice;
+      installEvent = null;
+      $('#install').hidden = true;
+    });
+
+    $('#export').addEventListener('click', () => {
+      const blob = new Blob([JSON.stringify(exportAll(), null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `문서비서-백업-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+    $('#import').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        importAll(JSON.parse(await file.text()));
+        alert('불러왔습니다.');
+        location.reload();
+      } catch (err) {
+        alert(err.message || '파일을 읽을 수 없습니다.');
+      }
+    });
+    $('#clear').addEventListener('click', () => {
+      if (confirm('모든 문서와 할 일을 삭제할까요? 되돌릴 수 없습니다.')) {
+        clearAll();
+        location.reload();
+      }
+    });
+  </script>
+</body>
+</html>

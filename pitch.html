@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>문서 비서 소개</title>
+  <meta name="description" content="가정통신문·과제 공지를 찍으면 그날의 행동 계획(날씨·출발 시각·준비물)까지 정리해 주는 문서 비서" />
+  <link rel="icon" href="icon.svg" />
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    /* ===== 소개 페이지 전용 스타일 (공통 토큰은 css/style.css 사용) ===== */
+    :root {
+      /* 역할별 강조 색 (라이트) */
+      --c-scan: #0891b2;
+      --c-ai: #4f46e5;
+      --c-wx: #0284c7;
+      --c-route: #059669;
+      --c-ok: #16a34a;
+      --ok-bg: #f0fdf4;
+      --shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px rgb(15 23 42 / 0.06);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --c-scan: #22d3ee;
+        --c-ai: #818cf8;
+        --c-wx: #38bdf8;
+        --c-route: #34d399;
+        --c-ok: #4ade80;
+        --ok-bg: #14261b;
+        --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px rgb(0 0 0 / 0.3);
+      }
+    }
+
+    html { scroll-behavior: smooth; }
+    body { overflow-x: hidden; }
+    .wrap { max-width: 960px; margin: 0 auto; padding: 0 16px; }
+    section.block { padding: 56px 0 8px; }
+    .eyebrow {
+      display: inline-block; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.04em;
+      color: var(--primary); background: var(--primary-weak); padding: 3px 10px; border-radius: 999px;
+    }
+    .block h2 { font-size: clamp(1.35rem, 4vw, 1.75rem); margin: 10px 0 6px; line-height: 1.3; word-break: keep-all; }
+    .lead { color: var(--muted); margin: 0 0 20px; word-break: keep-all; }
+    p, li { word-break: keep-all; }
+
+    /* 상단 바 */
+    .pbar { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--card) 88%, transparent);
+      backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+    .pbar .wrap { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 52px; }
+    .pbar .brand { display: flex; align-items: center; gap: 8px; }
+    .pbar .brand img { width: 26px; height: 26px; }
+    .pbar nav { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+    .pbar nav a { font-size: 0.88rem; color: var(--muted); text-decoration: none; padding: 6px 8px; border-radius: 8px; white-space: nowrap; }
+    .pbar nav a:hover { color: var(--primary); background: var(--primary-weak); }
+    @media (max-width: 640px) { .pbar nav .opt { display: none; } }
+
+    /* 히어로 */
+    .p-hero { padding: 56px 0 24px; text-align: center; }
+    .p-hero h1 { font-size: clamp(1.9rem, 7vw, 3rem); line-height: 1.2; margin: 14px 0 12px; word-break: keep-all; letter-spacing: -0.02em; }
+    .p-hero h1 em { font-style: normal; color: var(--primary); }
+    .p-hero .lead { font-size: 1.05rem; max-width: 600px; margin: 0 auto 24px; }
+    .cta { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+    .btn.lg { padding: 12px 18px; font-weight: 600; border-radius: 10px; }
+    .hero-tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 20px; }
+    .hero-tags span { font-size: 0.82rem; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; background: var(--card); }
+
+    /* 공통 카드 그리드 */
+    .grid { display: grid; gap: 12px; }
+    .grid.two { grid-template-columns: 1fr; }
+    .grid.three { grid-template-columns: 1fr; }
+    @media (min-width: 720px) {
+      .grid.two { grid-template-columns: 1fr 1fr; }
+      .grid.three { grid-template-columns: repeat(3, 1fr); }
+    }
+    .pcard { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 20px; box-shadow: var(--shadow); min-width: 0; }
+    .pcard h3 { margin: 0 0 8px; font-size: 1.05rem; }
+
+    /* 문제: 페르소나 */
+    .persona-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .avatar { width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; font-size: 1.6rem; background: var(--primary-weak); flex-shrink: 0; }
+    .persona-head small { display: block; color: var(--muted); }
+    .quote { margin: 0 0 12px; padding: 10px 12px; border-left: 3px solid var(--primary); background: var(--bg); border-radius: 0 8px 8px 0; font-size: 0.95rem; }
+    .pains { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 6px; }
+    .pains li { display: flex; gap: 8px; font-size: 0.93rem; }
+    .pains li::before { content: '✕'; color: var(--danger); font-weight: 700; flex-shrink: 0; }
+
+    /* 해결: before / after */
+    .ba { display: grid; grid-template-columns: 1fr; gap: 12px; align-items: center; }
+    @media (min-width: 760px) { .ba { grid-template-columns: 1fr auto 1fr; } }
+    .ba-arrow { text-align: center; font-size: 1.6rem; color: var(--primary); font-weight: 700; }
+    @media (max-width: 759px) { .ba-arrow { transform: rotate(90deg); } }
+    .ba-label { font-size: 0.8rem; font-weight: 700; color: var(--muted); margin-bottom: 8px; }
+    /* 종이 가정통신문 흉내 (밝은 종이색 고정) */
+    .paper {
+      background: #fdfcf7; color: #3b3b3b; border-radius: 6px; padding: 18px 18px 22px;
+      box-shadow: 0 6px 18px rgb(0 0 0 / 0.12); transform: rotate(-1.5deg); font-size: 0.82rem; line-height: 1.6;
+      font-family: 'Batang', 'Nanum Myeongjo', serif; position: relative;
+    }
+    .paper .ptitle { text-align: center; font-weight: 700; font-size: 1rem; margin-bottom: 8px; }
+    .paper .fade { color: #9a9a9a; }
+    .paper mark { background: #fff1a8; color: inherit; padding: 0 2px; }
+    .paper .tear { border-top: 1px dashed #bbb; margin-top: 12px; padding-top: 8px; font-size: 0.75rem; }
+    /* 브리핑 카드 */
+    .brief-demo { border: 2px solid var(--primary); border-radius: 16px; padding: 18px; background: var(--card); box-shadow: var(--shadow); }
+    .brief-demo .bd-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .brief-demo .bd-title { font-weight: 700; font-size: 1.05rem; }
+    .brief-demo .badge.hot { font-size: 0.8rem; padding: 2px 8px; }
+    .bd-rows { display: grid; gap: 8px; margin-top: 12px; }
+    .bd-row { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border-radius: 10px; background: var(--bg); font-size: 0.93rem; }
+    .bd-row .ic { width: 24px; text-align: center; flex-shrink: 0; }
+    .bd-row b { font-weight: 700; }
+    .bd-row .who { margin-left: auto; font-size: 0.72rem; color: var(--muted); white-space: nowrap; align-self: center; }
+    .bd-check { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+    .bd-check span { font-size: 0.82rem; border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; background: var(--card); }
+    .bd-check span.on { border-color: var(--c-ok); color: var(--c-ok); background: var(--ok-bg); }
+    .bd-check span.auto { border-style: dashed; border-color: var(--c-wx); color: var(--c-wx); }
+    .one-liner { margin-top: 16px; text-align: center; font-weight: 600; padding: 12px; border-radius: 12px; background: var(--primary-weak); color: var(--primary); word-break: keep-all; }
+
+    /* 구조 다이어그램 (HTML/CSS로 그림) */
+    .flow { display: grid; gap: 10px; justify-items: center; }
+    .node { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px; text-align: center; box-shadow: var(--shadow); width: 100%; max-width: 420px; }
+    .node .t { font-weight: 700; }
+    .node .s { font-size: 0.82rem; color: var(--muted); }
+    .node.main { border: 2px solid var(--c-ai); background: var(--primary-weak); max-width: 520px; }
+    .node.main .t { color: var(--c-ai); font-size: 1.05rem; }
+    .node.out { border: 2px solid var(--c-ok); background: var(--ok-bg); }
+    .node.out .t { color: var(--c-ok); }
+    .down { width: 2px; height: 22px; background: var(--line); position: relative; }
+    .down::after { content: ''; position: absolute; left: -5px; bottom: -2px; border: 6px solid transparent; border-top-color: var(--muted); border-bottom: 0; }
+    .roles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; max-width: 720px; }
+    @media (min-width: 720px) { .roles { grid-template-columns: repeat(4, 1fr); } }
+    .role { border-radius: 12px; padding: 10px; background: var(--card); border: 1px solid var(--line); border-top: 4px solid var(--rc); text-align: center; min-width: 0; }
+    .role .n { font-weight: 700; color: var(--rc); font-size: 0.95rem; }
+    .role .s { font-size: 0.78rem; color: var(--muted); }
+    .role .k { display: inline-block; margin-top: 6px; font-size: 0.68rem; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+    .role .k.ai { border-color: var(--c-ai); color: var(--c-ai); font-weight: 700; }
+    .why { margin-top: 24px; }
+    .why .pcard { padding: 16px; }
+    .why .num { font-size: 1.8rem; font-weight: 800; color: var(--primary); line-height: 1.1; }
+    .compare { width: 100%; border-collapse: collapse; font-size: 0.88rem; margin-top: 16px; }
+    .compare th, .compare td { border-bottom: 1px solid var(--line); padding: 8px 6px; text-align: left; vertical-align: top; }
+    .compare th { color: var(--muted); font-weight: 600; font-size: 0.8rem; }
+    .compare td.good { color: var(--c-ok); font-weight: 600; }
+    .table-scroll { overflow-x: auto; }
+
+    /* 핵심 기능 */
+    .feat { display: flex; flex-direction: column; gap: 4px; }
+    .feat .fi { font-size: 1.5rem; }
+    .feat h3 { margin: 4px 0 2px; }
+    .feat p { margin: 0; font-size: 0.9rem; color: var(--muted); }
+    .feat .tag { align-self: flex-start; font-size: 0.7rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; color: #fff; background: var(--rc, var(--primary)); margin-bottom: 2px; }
+    .r-scan { --rc: var(--c-scan); }
+    .r-ai { --rc: var(--c-ai); }
+    .r-wx { --rc: var(--c-wx); }
+    .r-route { --rc: var(--c-route); }
+    .r-common { --rc: #64748b; }
+    .grid.feats { grid-template-columns: 1fr; }
+    @media (min-width: 560px) { .grid.feats { grid-template-columns: 1fr 1fr; } }
+    @media (min-width: 880px) { .grid.feats { grid-template-columns: repeat(3, 1fr); } }
+
+    /* 차별점 */
+    .vs { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    @media (min-width: 720px) { .vs { grid-template-columns: 1fr 1.25fr; } }
+    .vs .them { opacity: 0.9; }
+    .vs .us { border: 2px solid var(--primary); }
+    .vs ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 0.93rem; }
+    .chain { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 12px; font-size: 0.9rem; }
+    .chain span { padding: 3px 9px; border-radius: 8px; background: var(--bg); border: 1px solid var(--line); }
+    .chain span.hl { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 700; }
+    .chain i { font-style: normal; color: var(--muted); }
+    .principles { margin-top: 12px; }
+    .principles .pcard h3 { display: flex; gap: 8px; align-items: center; }
+
+    /* 시연 흐름 */
+    .steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; counter-reset: s; }
+    .steps li { counter-increment: s; display: grid; grid-template-columns: 36px 1fr; gap: 12px; align-items: start; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+    .steps li::before { content: counter(s); width: 32px; height: 32px; border-radius: 50%; background: var(--primary); color: #fff; font-weight: 700; display: grid; place-items: center; }
+    .steps b { display: block; }
+    .steps p { margin: 2px 0 0; font-size: 0.9rem; color: var(--muted); }
+    .steps .row-gap { margin-top: 8px; }
+
+    /* 한계와 확장 */
+    .lim li { display: block; margin-bottom: 10px; }
+    .lim .q { font-weight: 600; }
+    .lim .a { font-size: 0.9rem; color: var(--muted); }
+    .lim .a::before { content: '→ '; color: var(--c-ok); font-weight: 700; }
+    .roadmap { display: flex; flex-wrap: wrap; gap: 8px; }
+    .roadmap span { padding: 6px 12px; border-radius: 999px; border: 1px dashed var(--primary); color: var(--primary); font-size: 0.88rem; }
+
+    footer.pfoot { margin: 56px 0 0; padding: 28px 0 40px; border-top: 1px solid var(--line); text-align: center; color: var(--muted); font-size: 0.88rem; }
+    footer.pfoot .cta { margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+  <!-- 상단 바: 섹션 바로가기 -->
+  <header class="pbar">
+    <div class="wrap">
+      <a class="brand" href="index.html"><img src="icon.svg" alt="" /> 문서 비서</a>
+      <nav aria-label="섹션 바로가기">
+        <a href="#problem">문제</a>
+        <a href="#solution">해결</a>
+        <a href="#arch">구조</a>
+        <a class="opt" href="#features">기능</a>
+        <a class="opt" href="#diff">차별점</a>
+        <a href="#demo">시연</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- ① 히어로: 한 줄 가치 제안 -->
+    <section class="p-hero">
+      <span class="eyebrow">📄 문서 비서 · AI 문서 → 행동 계획</span>
+      <h1>찍으면, <em>그날의 할 일</em>이<br />정리됩니다</h1>
+      <p class="lead">가정통신문·과제 공지 사진 한 장으로 할 일과 마감일은 물론, <b>그날 날씨, 몇 시에 출발할지, 무엇을 챙길지</b>까지 브리핑 카드 한 장으로 알려 드립니다.</p>
+      <div class="cta">
+        <a class="btn primary lg" href="demo.html">▶ 시연 화면 보기</a>
+        <a class="btn lg" href="upload.html?demo=parent">🏫 학부모 예시 체험</a>
+        <a class="btn lg" href="upload.html?demo=student">🎓 대학생 예시 체험</a>
+      </div>
+      <div class="hero-tags">
+        <span>Gemini 1회 호출</span><span>서버 없음 · 설치 없음</span><span>API 키 없이 예시 체험</span><span>PWA · 다크 모드</span>
+      </div>
+    </section>
+
+    <!-- ② 문제: 두 페르소나 -->
+    <section class="block" id="problem">
+      <span class="eyebrow">문제</span>
+      <h2>종이 한 장이 놓치면 안 되는 일 여러 개를 품고 있습니다</h2>
+      <p class="lead">안내문은 "읽기"보다 "그날 행동으로 옮기기"가 어렵습니다. 날짜는 적어 두어도, 준비물·회신·출발 시각은 결국 머릿속에 남겨 두게 됩니다.</p>
+      <div class="grid two">
+        <article class="pcard">
+          <div class="persona-head">
+            <div class="avatar">🏫</div>
+            <div><h3 style="margin:0">학부모 김OO 님</h3><small>초등 2학년 · 맞벌이</small></div>
+          </div>
+          <p class="quote">"가방 속 가정통신문을 금요일 밤에야 봤어요. 회신서는 이미 마감이었죠."</p>
+          <ul class="pains">
+            <li>일주일에 3~5장씩 오는 가정통신문, 아이 가방 속에서 구겨지고 사라짐</li>
+            <li>회신서 서명·제출 기한, 체험학습비 계좌·금액을 따로 기억해야 함</li>
+            <li>체험학습 당일 아침: 도시락·우산 챙겼나? 몇 시에 나가야 하나?</li>
+          </ul>
+        </article>
+        <article class="pcard">
+          <div class="persona-head">
+            <div class="avatar">🎓</div>
+            <div><h3 style="margin:0">대학생 이OO 님</h3><small>3학년 · 5과목 수강</small></div>
+          </div>
+          <p class="quote">"마감이 한 주에 몰려 있는 걸 마감 이틀 전에야 알았어요."</p>
+          <ul class="pains">
+            <li>LMS·단톡·게시판에 흩어진 과목별 과제 공지, 형식도 제각각</li>
+            <li>마감일만 알 뿐 "언제 무엇부터 시작할지"가 없어 계속 미룸</li>
+            <li>발표·시험 장소가 바뀌어도 이동 시간까지 계산하진 않음</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <!-- ③ 해결: before / after -->
+    <section class="block" id="solution">
+      <span class="eyebrow">해결</span>
+      <h2>종이 한 장 → 그날 아침의 브리핑 카드 한 장</h2>
+      <p class="lead">사진을 올리면 AI가 문서를 읽고, 날씨·이동 도구가 보태서 <b>"언제, 무엇을, 어떻게"</b>를 한 카드에 담습니다.</p>
+      <div class="ba">
+        <div>
+          <div class="ba-label">BEFORE · 기울어진 가정통신문 사진</div>
+          <div class="paper" aria-label="가정통신문 예시">
+            <div class="ptitle">현장체험학습 안내</div>
+            <div class="fade">학부모님 안녕하십니까. 가을을 맞아 2학년 현장체험학습을 아래와 같이 실시하오니…</div>
+            <div>· 일시: <mark>11월 25일(수) 09:00</mark> 정문 집합</div>
+            <div>· 장소: <mark>국립과천과학관</mark></div>
+            <div>· 준비물: <mark>도시락</mark>, 물, 돗자리, 편한 운동화</div>
+            <div>· 체험비: <mark>15,000원</mark> (스쿨뱅킹 11/20 출금)</div>
+            <div class="fade">· 우천 시에도 실내 일정으로 진행합니다…</div>
+            <div class="tear">✂ 참가 동의서 — <mark>11월 20일까지</mark> 담임 선생님께 제출</div>
+          </div>
+        </div>
+        <div class="ba-arrow" aria-hidden="true">➜</div>
+        <div>
+          <div class="ba-label">AFTER · 전날 저녁 받는 D-day 브리핑</div>
+          <div class="brief-demo">
+            <div class="bd-top">
+              <span class="bd-title">🚌 현장체험학습</span>
+              <span class="badge hot">D-1</span>
+            </div>
+            <div class="bd-rows">
+              <div class="bd-row"><span class="ic">📅</span><span><b>내일 09:00</b> · 국립과천과학관</span><span class="who">② 분석</span></div>
+              <div class="bd-row"><span class="ic">🌧️</span><span>비 60% · 8~13℃ · <b>☂️ 우산</b> 챙기기</span><span class="who">③ 날씨</span></div>
+              <div class="bd-row"><span class="ic">⏰</span><span><b>08:05 출발</b> (자동차 45분 + 여유 10분)</span><span class="who">④ 이동</span></div>
+              <div class="bd-row"><span class="ic">🎒</span>
+                <span>준비물
+                  <span class="bd-check"><span class="on">도시락 ✅</span><span>물</span><span>돗자리</span><span>운동화</span><span class="auto">우산 (비 예보)</span></span>
+                </span>
+              </div>
+              <div class="bd-row"><span class="ic">✍️</span><span>참가 동의서 회신 <b>11/20까지</b> · 체험비 15,000원</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="one-liner">"내일 09:00 국립과천과학관 · 비 60% ☂️ 우산 · 08:05 출발 · 도시락 ✅"</div>
+    </section>
+
+    <!-- ④ 구조: 메인 에이전트 1개 + 역할 4개 -->
+    <section class="block" id="arch">
+      <span class="eyebrow">구조</span>
+      <h2>AI는 한 번만 부르고, 나머지는 정확한 도구에게</h2>
+      <p class="lead">메인 에이전트가 Gemini를 <b>단 한 번</b> 호출해 문서의 모든 정보를 구조화하고, 결과를 네 가지 역할에 나눠 줍니다. 날씨·길찾기는 이미 정답이 있는 API이므로 AI가 추측할 필요가 없습니다.</p>
+
+      <div class="flow" role="img" aria-label="사진에서 메인 에이전트, 네 가지 역할을 거쳐 브리핑과 알람으로 이어지는 구조도">
+        <div class="node"><div class="t">📷 사진 · PDF (여러 장)</div><div class="s">가정통신문, 과제 공지, 행사 포스터</div></div>
+        <div class="down"></div>
+        <div class="node main">
+          <div class="t">🧠 메인 에이전트 — Gemini 1회</div>
+          <div class="s">문서 종류 · 요약 · 할 일 · 날짜 · 장소 · 준비물 · 회신/납부 · 학습 단계 계획 · 문서 모서리 좌표</div>
+        </div>
+        <div class="down"></div>
+        <div class="roles">
+          <div class="role r-scan"><div class="n">① 문서 인식</div><div class="s">원근 보정 → JPG/PDF, 보관함</div><span class="k">Canvas</span></div>
+          <div class="role r-ai"><div class="n">② 분석</div><div class="s">할 일·근거 문장·확신도</div><span class="k ai">AI 결과</span></div>
+          <div class="role r-wx"><div class="n">③ 날씨</div><div class="s">그날 예보 → 우산·옷차림</div><span class="k">Open-Meteo</span></div>
+          <div class="role r-route"><div class="n">④ 이동</div><div class="s">장소 검색 → 출발 시각</div><span class="k">Kakao</span></div>
+        </div>
+        <div class="down"></div>
+        <div class="node out"><div class="t">📋 D-day 브리핑 · ⏰ 알람</div><div class="s">하루 전 · 당일 아침 · 출발 10분 전 · 출발 시각 · .ics 내보내기</div></div>
+      </div>
+
+      <div class="why">
+        <div class="grid three">
+          <div class="pcard"><div class="num">1/4</div><b>무료 사용량</b><p class="muted" style="margin:4px 0 0">LLM 에이전트 4개가 각자 호출하면 무료 한도가 4배로 소모됩니다. 1회 호출이면 같은 한도로 4배 더 쓸 수 있습니다.</p></div>
+          <div class="pcard"><div class="num">⚡ 빠름</div><b>대기 시간</b><p class="muted" style="margin:4px 0 0">LLM 왕복은 한 번뿐. 날씨·이동은 수백 ms 안에 끝나는 일반 API라 병렬로 처리됩니다.</p></div>
+          <div class="pcard"><div class="num">🛡️ 안정</div><b>실패 지점 감소</b><p class="muted" style="margin:4px 0 0">AI 호출이 하나라 실패 지점이 줄고, 날씨·이동이 실패해도 할 일은 그대로 저장됩니다.</p></div>
+        </div>
+        <div class="table-scroll">
+          <table class="compare">
+            <thead><tr><th></th><th>LLM 에이전트 4개</th><th>메인 에이전트 1개 + 도구 (우리)</th></tr></thead>
+            <tbody>
+              <tr><td>AI 호출 수</td><td>문서당 4회 이상</td><td class="good">문서당 1회</td></tr>
+              <tr><td>날씨·소요시간</td><td>AI가 문장으로 추측</td><td class="good">공식 API 숫자 그대로</td></tr>
+              <tr><td>한 곳 실패 시</td><td>전체 흐름 중단 가능</td><td class="good">해당 정보만 빠지고 계속</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ⑤ 핵심 기능 -->
+    <section class="block" id="features">
+      <span class="eyebrow">핵심 기능</span>
+      <h2>찍는 순간부터 당일 아침까지</h2>
+      <p class="lead">역할별 색으로 표시했습니다.</p>
+      <div class="grid feats">
+        <div class="pcard feat r-scan"><span class="tag">① 문서 인식</span><span class="fi">📐</span><h3>기울어진 사진 반듯하게</h3><p>문서 모서리를 찾아 원근 보정, JPG·PDF로 저장. 어긋나면 모서리를 끌어서 조정.</p></div>
+        <div class="pcard feat r-scan"><span class="tag">① 문서 인식</span><span class="fi">🔍</span><h3>흐림·중복 감지</h3><p>흐린 사진은 "다시 찍어 주세요", 이미 올린 문서는 중복 등록 전에 알려 줌.</p></div>
+        <div class="pcard feat r-ai"><span class="tag">② 분석</span><span class="fi">✅</span><h3>할 일 · 마감 · 준비물</h3><p>요약, 할 일, 날짜·시간, 장소, 준비물 체크리스트를 한 번에. 근거 문장도 함께 표시.</p></div>
+        <div class="pcard feat r-ai"><span class="tag">② 분석</span><span class="fi">✍️</span><h3>회신서 · 납부 정보</h3><p>서명 후 제출할 회신서와 기한, 체험비 금액·계좌를 따로 뽑아 놓치지 않게.</p></div>
+        <div class="pcard feat r-ai"><span class="tag">② 분석</span><span class="fi">🪜</span><h3>거꾸로 짜는 학습 계획</h3><p>대학생 과제는 마감에서 거꾸로 "구현 → 실험 → 보고서 → 제출" 단계 일정을 제안.</p></div>
+        <div class="pcard feat r-ai"><span class="tag">② 분석</span><span class="fi">🌏</span><h3>다국어 · 쉬운 말 요약</h3><p>다문화 가정과 어르신도 이해하도록 번역·쉬운 말로 다시 요약.</p></div>
+        <div class="pcard feat r-wx"><span class="tag">③ 날씨</span><span class="fi">☂️</span><h3>비 오면 우산 자동 추가</h3><p>행사 장소의 그날 예보로 우산을 준비물에 넣고, 기온에 맞는 옷차림을 조언.</p></div>
+        <div class="pcard feat r-route"><span class="tag">④ 이동</span><span class="fi">⏰</span><h3>출발 시각 · 출발 알람</h3><p>장소까지 소요시간 + 여유 시간으로 출발 시각을 계산하고, 당일 교통에 맞춰 다시 계산.</p></div>
+        <div class="pcard feat r-common"><span class="tag">공통</span><span class="fi">🌅</span><h3>아침 브리핑 알림</h3><p>오늘 할 일 · 날씨 · 출발 시각 · 준비물을 아침에 한 번에.</p></div>
+        <div class="pcard feat r-common"><span class="tag">공통</span><span class="fi">🗂️</span><h3>문서함 · 검색</h3><p>스캔한 원본을 보관하고 제목·내용으로 검색. 캘린더와 연결.</p></div>
+        <div class="pcard feat r-common"><span class="tag">공통</span><span class="fi">📆</span><h3>.ics 내보내기 · PWA</h3><p>휴대폰 기본 캘린더로 옮겨 탭이 닫혀도 알람. 홈 화면에 추가해 앱처럼.</p></div>
+        <div class="pcard feat r-common"><span class="tag">공통</span><span class="fi">🧪</span><h3>예시 체험 모드</h3><p>API 키 없이도 학부모·대학생 예시 문서로 전 과정을 바로 체험.</p></div>
+      </div>
+    </section>
+
+    <!-- ⑥ 차별점 -->
+    <section class="block" id="diff">
+      <span class="eyebrow">차별점</span>
+      <h2>"문서 → 일정"이 아니라 "문서 → 그날의 행동 계획"</h2>
+      <p class="lead">캘린더 앱은 날짜를 기억해 주고, 스캐너 앱은 종이를 저장해 줍니다. 그 사이의 "그래서 그날 나는 뭘 해야 하지?"를 채우는 것이 문서 비서입니다.</p>
+      <div class="vs">
+        <div class="pcard them">
+          <h3>📅 일반 캘린더 · 📠 스캐너 앱</h3>
+          <div class="chain"><span>문서</span><i>→</i><span>일정 1개</span></div>
+          <ul>
+            <li>날짜를 사람이 직접 옮겨 적어야 함</li>
+            <li>준비물·회신서·납부는 메모로 따로</li>
+            <li>날씨·출발 시각은 당일 아침 각자 확인</li>
+            <li>스캔은 보관만, 내용은 이해하지 않음</li>
+          </ul>
+        </div>
+        <div class="pcard us">
+          <h3>📄 문서 비서</h3>
+          <div class="chain"><span>문서</span><i>→</i><span>할 일 · 회신 · 납부</span><i>→</i><span class="hl">그날의 행동 계획</span></div>
+          <ul>
+            <li>사진 한 장으로 할 일·마감·준비물 자동 정리</li>
+            <li>그날 날씨를 보고 <b>우산·옷차림</b>까지 반영</li>
+            <li>장소까지 이동 시간으로 <b>출발 시각과 알람</b> 계산</li>
+            <li>대학생 과제는 마감에서 거꾸로 <b>단계 계획</b></li>
+          </ul>
+        </div>
+      </div>
+      <div class="grid two principles">
+        <div class="pcard"><h3>🤝 AI는 제안, 결정은 사용자</h3><p class="muted" style="margin:0">AI가 뽑은 할 일은 바로 저장하지 않고 확인 화면에서 고치고 고른 뒤 저장합니다. 확신이 낮은 항목은 따로 표시합니다.</p></div>
+        <div class="pcard"><h3>🔎 근거 문장 표시</h3><p class="muted" style="margin:0">모든 할 일 아래에 원문의 근거 문장을 보여 줘서, AI가 지어낸 내용인지 바로 확인할 수 있습니다.</p></div>
+      </div>
+    </section>
+
+    <!-- ⑦ 시연 흐름 -->
+    <section class="block" id="demo">
+      <span class="eyebrow">시연 흐름</span>
+      <h2>3분 시연 시나리오</h2>
+      <p class="lead">API 키가 없어도 예시 체험 모드로 처음부터 끝까지 진행할 수 있습니다.</p>
+      <ol class="steps">
+        <li><div><b>시연 화면 열기</b><p>휴대폰 화면 모양의 시연 페이지에서 앱을 띄웁니다.</p>
+          <div class="row-gap"><a class="btn small primary" href="demo.html">📱 demo.html 열기</a></div></div></li>
+        <li><div><b>학부모 예시: 기울어진 체험학습 안내문</b><p>① 문서가 반듯하게 펴지고 PDF로 저장 → ② "11/25 09:00 국립과천과학관 · 도시락" 추출 · 회신서·체험비 따로 표시.</p>
+          <div class="row-gap"><a class="btn small" href="upload.html?demo=parent">🏫 학부모 예시</a></div></div></li>
+        <li><div><b>날씨와 이동이 붙는 순간</b><p>③ 비 60% → 우산이 준비물에 자동 추가 · ④ 집에서 45분 → "08:05 출발" 알람 등록.</p></div></li>
+        <li><div><b>대학생 예시: 여러 과목 과제 공지</b><p>마감에서 거꾸로 짠 단계 계획(구현 → 성능 실험 → 보고서 초안 → 제출)이 캘린더에 깔리는 모습.</p>
+          <div class="row-gap"><a class="btn small" href="upload.html?demo=student">🎓 대학생 예시</a></div></div></li>
+        <li><div><b>홈의 D-day 브리핑으로 마무리</b><p>"내일 09:00 · 비 60% ☂️ · 08:05 출발 · 도시락 ✅" 한 장 + 문서함 검색 + .ics 내보내기.</p>
+          <div class="row-gap"><a class="btn small" href="index.html">🏠 홈</a><a class="btn small" href="calendar.html">📅 캘린더</a><a class="btn small" href="docs.html">🗂️ 문서함</a></div></div></li>
+      </ol>
+    </section>
+
+    <!-- ⑧ 한계와 확장 -->
+    <section class="block" id="limits">
+      <span class="eyebrow">한계와 확장</span>
+      <h2>서버 없이 만든 만큼, 한계도 솔직하게</h2>
+      <div class="grid two">
+        <div class="pcard">
+          <h3>현재 한계와 보완</h3>
+          <ul class="lim" style="padding:0;margin:0">
+            <li><div class="q">탭이 닫혀 있으면 알림이 오지 않음</div><div class="a">.ics로 휴대폰 기본 캘린더에 옮기면 OS가 알람 · 접속 시 마감 배너</div></li>
+            <li><div class="q">소요시간은 자동차(가까우면 도보) 기준</div><div class="a">대중교통 상세 경로는 카카오맵 길찾기 링크로 연결</div></li>
+            <li><div class="q">데이터는 이 브라우저에만 저장</div><div class="a">설정의 백업/불러오기로 기기 이동 · 대신 개인정보가 서버에 남지 않음</div></li>
+            <li><div class="q">날씨는 약 16일 이내만 예보</div><div class="a">그 이후 일정은 가까워지면 자동으로 다시 반영</div></li>
+          </ul>
+        </div>
+        <div class="pcard">
+          <h3>다음 단계</h3>
+          <p class="muted" style="margin:0 0 12px">서버를 붙이면 "알려 주는 앱"에서 "함께 챙기는 앱"으로.</p>
+          <div class="roadmap">
+            <span>🔔 서버 푸시 (탭이 닫혀도 알림)</span>
+            <span>👨‍👩‍👧 가족 공유 (부모 둘이 함께)</span>
+            <span>💬 카카오톡 알림</span>
+            <span>🏫 학교 공지 자동 수집</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="pfoot">
+      <div class="cta">
+        <a class="btn primary lg" href="demo.html">▶ 시연 화면 보기</a>
+        <a class="btn lg" href="index.html">앱 열기</a>
+      </div>
+      📄 문서 비서 — 찍으면, 그날의 할 일이 정리됩니다
+    </footer>
+  </main>
+</body>
+</html>

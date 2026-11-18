@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>문서 비서</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <main class="container">
+    <section class="hero card">
+      <h1>찍으면, 그날의 할 일이 정리됩니다</h1>
+      <p class="muted">가정통신문·과제 공지를 찍으면 할 일과 마감일, 그날 날씨, 출발 시각, 준비물까지 한 번에 정리해 알려드려요.</p>
+      <a class="btn primary" href="upload.html">📷 문서 올리기</a>
+      <div class="row-gap center-row">
+        <a class="btn small" href="upload.html?demo=parent">🏫 학부모 예시</a>
+        <a class="btn small" href="upload.html?demo=student">🎓 대학생 예시</a>
+      </div>
+    </section>
+
+    <section class="card weather" id="weather">
+      <p class="muted">🌤️ 날씨 불러오는 중…</p>
+    </section>
+
+    <section id="briefing-section" hidden>
+      <h2>📋 오늘·내일 브리핑</h2>
+      <div id="briefing"></div>
+    </section>
+
+    <section>
+      <h2>다가오는 할 일 <small class="muted">7일 이내</small></h2>
+      <div id="upcoming"></div>
+    </section>
+
+    <section>
+      <h2>놓친 할 일</h2>
+      <div id="overdue"></div>
+    </section>
+
+    <section>
+      <div class="row-between">
+        <h2>최근 문서</h2>
+        <a href="docs.html">문서함 전체 보기 →</a>
+      </div>
+      <div id="docs"></div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { initPage } from './js/nav.js';
+    import { getTasks, getDocs, updateTask, toggleItem } from './js/storage.js';
+    import { esc, formatDue, dDayLabel, daysLeft } from './js/util.js';
+    import { getCurrentWeather, adviceFor } from './js/agents/weatherAgent.js';
+    import { buildBriefing, refreshTodayTrips } from './js/agents/orchestrator.js';
+    import { DOC_TYPES, TASK_KINDS } from './js/agents/analyzeAgent.js';
+    import { showToast } from './js/notify.js';
+
+    initPage('index.html');
+    const $ = (s) => document.querySelector(s);
+
+    // ③ 오늘 날씨
+    async function renderWeather() {
+      try {
+        const w = await getCurrentWeather();
+        const tips = adviceFor(w.today);
+        $('#weather').innerHTML = `
+          <div class="row-between">
+            <div><div class="wx-big">${w.icon} ${w.temp}℃</div>
+              <div class="muted">${esc(w.place)} · ${esc(w.text)} · 체감 ${w.feels}℃</div></div>
+            <div class="right">최고 ${w.today.max}℃ / 최저 ${w.today.min}℃<br />강수확률 ${w.today.rain}%</div>
+          </div>
+          ${tips.length ? `<p>${tips.map(esc).join('<br />')}</p>` : ''}`;
+      } catch (err) {
+        $('#weather').innerHTML = `<p class="muted">날씨를 불러오지 못했습니다. (${esc(err.message)})</p>`;
+      }
+    }
+
+    const kindChip = (k) => TASK_KINDS[k] ? `<span class="kind ${TASK_KINDS[k].cls}">${TASK_KINDS[k].label}</span>` : '';
+    const hhmm = (d) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+
+    // 오늘·내일 브리핑: 날씨 + 출발 시각 + 준비물 체크리스트
+    async function renderBriefing() {
+      const soon = getTasks().filter((t) => !t.done && t.dueDate && daysLeft(t.dueDate) >= 0 && daysLeft(t.dueDate) <= 1)
+        .sort((a, b) => (a.dueDate + (a.dueTime || '')).localeCompare(b.dueDate + (b.dueTime || '')));
+      $('#briefing-section').hidden = !soon.length;
+      if (!soon.length) return;
+      const briefs = await Promise.all(soon.map(buildBriefing));
+      $('#briefing').innerHTML = briefs.map(({ task: t, weather: w, tips, items }) => {
+        const depart = t.travel?.departAt ? new Date(t.travel.departAt) : null;
+        const doneSet = new Set(t.itemsDone || []);
+        return `<div class="card brief" data-id="${t.id}">
+          <div class="task-title">${kindChip(t.kind)} ${esc(t.title)} <span class="badge hot">${dDayLabel(t.dueDate)}</span></div>
+          <div class="muted">${esc(formatDue(t))}${t.place ? ` · 📍 ${esc(t.place.name)}` : t.location ? ` · 📍 ${esc(t.location)}` : ''}</div>
+          ${w ? `<div>${w.icon} ${esc(w.text)} ${w.min}~${w.max}℃ · 강수 ${w.rain}%</div>` : ''}
+          ${depart ? `<div class="depart">⏰ <b>${hhmm(depart)} 출발</b> (${esc(t.travel.basis)} ${t.travel.minutes}분) · <a href="${t.travel.mapLink}" target="_blank" rel="noopener">길찾기</a></div>` : ''}
+          ${items.length ? `<div class="checklist">🎒 ${items.map((i) => `
+            <label class="check-item ${doneSet.has(i) ? 'on' : ''}"><input type="checkbox" data-item="${esc(i)}" ${doneSet.has(i) ? 'checked' : ''} /> ${esc(i)}</label>`).join('')}
+            <span class="muted small">${[...doneSet].filter((i) => items.includes(i)).length}/${items.length} 챙김</span></div>` : ''}
+          ${tips.length ? `<div class="muted">${tips.map(esc).join(' · ')}</div>` : ''}
+        </div>`;
+      }).join('');
+      $('#briefing').querySelectorAll('.checklist input').forEach((cb) => cb.addEventListener('change', () => {
+        toggleItem(cb.closest('.brief').dataset.id, cb.dataset.item);
+        renderBriefing();
+      }));
+    }
+
+    function taskRow(t) {
+      return `<div class="card task" data-id="${t.id}">
+        <input type="checkbox" class="done-toggle" aria-label="완료" />
+        <div class="task-body">
+          <div class="task-title">${kindChip(t.kind)} ${esc(t.title)} <span class="badge ${daysLeft(t.dueDate) <= 1 ? 'hot' : ''}">${dDayLabel(t.dueDate)}</span></div>
+          <div class="muted">${esc(formatDue(t))}${t.travel?.departAt ? ` · ⏰ ${hhmm(new Date(t.travel.departAt))} 출발` : ''}</div>
+        </div>
+        <a class="btn small" href="calendar.html?date=${t.dueDate}">보기</a>
+      </div>`;
+    }
+
+    function render() {
+      const open = getTasks().filter((t) => !t.done && t.dueDate)
+        .sort((a, b) => (a.dueDate + (a.dueTime || '')).localeCompare(b.dueDate + (b.dueTime || '')));
+      const upcoming = open.filter((t) => daysLeft(t.dueDate) >= 0 && daysLeft(t.dueDate) <= 7);
+      const overdue = open.filter((t) => daysLeft(t.dueDate) < 0);
+
+      $('#upcoming').innerHTML = upcoming.length ? upcoming.map(taskRow).join('') : '<p class="muted">일주일 안에 마감되는 할 일이 없습니다.</p>';
+      $('#overdue').innerHTML = overdue.length ? overdue.map(taskRow).join('') : '<p class="muted">없습니다 👍</p>';
+
+      document.querySelectorAll('.done-toggle').forEach((cb) => {
+        cb.addEventListener('change', () => {
+          updateTask(cb.closest('.task').dataset.id, { done: true });
+          render();
+          renderBriefing();
+        });
+      });
+
+      const docs = getDocs().slice(0, 3);
+      $('#docs').innerHTML = docs.length ? docs.map((d) => {
+        const t = DOC_TYPES[d.docType] || DOC_TYPES.other;
+        return `<a class="card doc-row" href="docs.html#${d.id}">
+          <span class="pill">${t.icon} ${t.label}</span> <b>${esc(d.title)}</b>
+          <span class="muted">${new Date(d.createdAt).toLocaleDateString('ko-KR')}</span></a>`;
+      }).join('') : '<p class="muted">아직 올린 문서가 없습니다. 위의 예시 버튼으로 체험해 보세요.</p>';
+    }
+
+    render();
+    renderWeather();
+    renderBriefing();
+    // 오늘 출발할 일정은 지금 기준으로 이동 시간을 다시 계산
+    refreshTodayTrips().then((changed) => {
+      if (changed.length) {
+        showToast(`🚗 교통 상황 반영: ${changed.join(', ')} 출발 시각이 바뀌었습니다.`);
+        render();
+        renderBriefing();
+      }
+    });
+  </script>
+</body>
+</html>

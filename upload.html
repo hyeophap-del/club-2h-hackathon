@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>문서 올리기 - 문서 비서</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <!-- PDF 변환용 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+  <main class="container">
+    <h1>문서 올리기</h1>
+
+    <section id="step-upload">
+      <div class="card">
+        <p class="muted">가정통신문, 체험학습 안내, 과제·장학금 공지 등을 찍거나 파일(JPG, PNG, PDF)로 올려 주세요. 여러 장이면 순서대로 추가하세요.</p>
+        <label class="dropzone" id="dropzone">
+          <input type="file" id="file" accept="image/*,application/pdf" multiple hidden />
+          <span>📷 눌러서 촬영하거나 파일 선택<br /><small>또는 여기로 끌어다 놓기 · 최대 5장</small></span>
+        </label>
+        <div id="thumbs" class="thumbs"></div>
+        <p class="notice">⚠️ 무료 Gemini API는 입력한 내용이 Google 서비스 개선에 쓰일 수 있습니다. 주민등록번호 등 민감한 개인정보가 담긴 문서는 올리지 마세요.</p>
+        <button class="btn primary block" id="analyze" disabled>분석하기</button>
+        <p id="error" class="error" hidden></p>
+      </div>
+
+      <div class="card demo-box">
+        <b>🧪 키 없이 예시로 체험하기</b>
+        <p class="muted">미리 준비한 예시 문서로 문서 펴기 → 분석 → 날씨 → 이동 → 알람까지 전체 흐름을 볼 수 있습니다.</p>
+        <div class="row-gap">
+          <a class="btn" href="upload.html?demo=parent">🏫 학부모: 현장체험학습 안내</a>
+          <a class="btn" href="upload.html?demo=student">🎓 대학생: 과제 공지</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="step-loading" hidden>
+      <div class="spinner"></div>
+      <ol class="progress" id="progress">
+        <li>① 문서 테두리 찾기</li>
+        <li>② 내용 읽고 할 일 정리</li>
+        <li>③ 그날 날씨 확인</li>
+        <li>④ 장소까지 이동 시간 계산</li>
+      </ol>
+      <p class="center muted" id="loading-text">메인 에이전트가 문서를 처리하는 중입니다… (10~30초)</p>
+    </section>
+
+    <section id="step-review" hidden>
+      <div class="row-gap" id="badges"></div>
+
+      <!-- ① 문서 인식 결과 -->
+      <div class="card" id="scan-card" hidden>
+        <h3>① 인식한 문서</h3>
+        <div class="row-gap" id="page-tabs"></div>
+        <div id="scan-view" class="scan-view"></div>
+        <p class="muted" id="scan-hint"></p>
+        <div class="row-gap">
+          <button class="btn" id="adjust">모서리 조정</button>
+          <button class="btn primary" id="apply-corners" hidden>조정 적용</button>
+          <label class="check"><input type="checkbox" id="enhance" checked /> 선명하게</label>
+          <span class="spacer"></span>
+          <button class="btn" id="dl-jpg">JPG 저장</button>
+          <button class="btn" id="dl-pdf">PDF 저장</button>
+        </div>
+      </div>
+
+      <!-- ② 분석 결과 -->
+      <div class="card">
+        <h3>② 문서 내용</h3>
+        <label class="field">문서 제목<input id="doc-title" /></label>
+        <p id="doc-summary"></p>
+        <ul id="doc-points"></ul>
+        <div id="extras"></div>
+      </div>
+
+      <div class="row-between">
+        <h2>해야 할 일 <small class="muted">확인하고 고쳐 주세요</small></h2>
+        <button class="btn" id="add-task">+ 직접 추가</button>
+      </div>
+      <div id="task-list"></div>
+
+      <div class="row-gap sticky-actions">
+        <button class="btn" id="retry">다시 올리기</button>
+        <span class="spacer"></span>
+        <button class="btn primary" id="save">캘린더에 저장</button>
+      </div>
+    </section>
+  </main>
+
+  <template id="task-tpl">
+    <div class="card task-edit">
+      <div class="row-between">
+        <label class="check"><input type="checkbox" class="t-include" checked /> 캘린더에 추가</label>
+        <select class="t-kind">
+          <option value="event">참석</option>
+          <option value="deadline">마감</option>
+          <option value="reply">회신</option>
+          <option value="payment">납부</option>
+          <option value="prep">준비</option>
+        </select>
+      </div>
+      <p class="warn-text t-lowconf" hidden>🟡 AI가 확실히 읽지 못한 항목입니다. 원문과 비교해 확인해 주세요.</p>
+      <label class="field">할 일<input class="t-title" required /></label>
+      <div class="row-gap">
+        <label class="field">날짜<input type="date" class="t-date" /></label>
+        <label class="field">도착/마감 시간<input type="time" class="t-time" /></label>
+      </div>
+      <p class="warn-text t-nodate" hidden>⚠️ 문서에서 날짜를 찾지 못했습니다. 직접 입력해 주세요.</p>
+      <label class="field">장소<input class="t-location" placeholder="예: 국립과천과학관" /></label>
+      <div class="trip"></div>
+      <div class="weather-line"></div>
+      <label class="field">준비물 (쉼표로 구분)<input class="t-items" /></label>
+      <label class="field">세부 내용<textarea class="t-desc" rows="2"></textarea></label>
+      <div class="steps" hidden>
+        <label class="check"><input type="checkbox" class="t-steps-on" checked /> <b>📆 거꾸로 세운 단계 계획도 캘린더에 추가</b></label>
+        <div class="step-list"></div>
+      </div>
+      <p class="source" hidden>근거: “<span class="t-source"></span>”</p>
+    </div>
+  </template>
+
+  <script type="module">
+    import { initPage } from './js/nav.js';
+    import { fileToInlineData, fingerprint, sharpness, BLUR_THRESHOLD } from './js/image.js';
+    import { analyzeDocument, planTaskTrip } from './js/agents/orchestrator.js';
+    import { DOC_TYPES, AUDIENCES } from './js/agents/analyzeAgent.js';
+    import { cornersFromAI, defaultCorners, warpDocument, enhance, downloadJpg, downloadPdf } from './js/agents/scanAgent.js';
+    import { departTime } from './js/agents/routeAgent.js';
+    import { getForecastFor, adviceFor } from './js/agents/weatherAgent.js';
+    import { createCornerEditor } from './js/cornerEditor.js';
+    import { saveDoc, saveTasks, getSettings, findDocByHash } from './js/storage.js';
+    import { savePages, canvasToBlob } from './js/archive.js';
+    import { buildReminders, requestPermission } from './js/notify.js';
+    import { loadSample } from './js/demo.js';
+    import { MAX_PAGES, LANGUAGES } from './js/config.js';
+    import { esc, daysLeft } from './js/util.js';
+
+    initPage('upload.html');
+
+    const $ = (s) => document.querySelector(s);
+    // 페이지 상태: {inline, img, corners, scanned, sharp}
+    let pages = [];
+    let current = 0;
+    let result = null;
+    let demo = null;      // 예시 모드일 때 미리 만든 분석 결과
+    let editor = null;
+    const meta = new WeakMap(); // 카드 → {trip, place, location, demoPlace, steps}
+
+    function showStep(name) {
+      for (const s of ['upload', 'loading', 'review']) $(`#step-${s}`).hidden = s !== name;
+      window.scrollTo(0, 0);
+    }
+    function showError(msg) {
+      $('#error').textContent = msg;
+      $('#error').hidden = !msg;
+    }
+
+    // ---------- 파일 선택 ----------
+    function renderThumbs() {
+      $('#thumbs').innerHTML = pages.map((p, i) => `
+        <div class="thumb">
+          ${p.inline.mimeType === 'application/pdf' ? `<div class="pdf-thumb">📄<br>${esc(p.inline.name)}</div>` : `<img src="${p.inline.previewUrl}" alt="${i + 1}쪽" />`}
+          <span class="thumb-no">${i + 1}</span>
+          ${p.sharp != null && p.sharp < BLUR_THRESHOLD ? '<span class="thumb-warn" title="흐릿함">흐림</span>' : ''}
+          ${demo ? '' : `<button class="thumb-del" data-i="${i}" aria-label="삭제">✕</button>`}
+        </div>`).join('');
+      $('#thumbs').querySelectorAll('.thumb-del').forEach((b) => b.addEventListener('click', () => {
+        pages.splice(Number(b.dataset.i), 1);
+        renderThumbs();
+      }));
+      $('#analyze').disabled = !pages.length;
+      const blurry = pages.some((p) => p.sharp != null && p.sharp < BLUR_THRESHOLD);
+      if (blurry) showError('흐릿한 사진이 있습니다. 글자가 잘 안 읽히면 밝은 곳에서 다시 찍어 주세요. (그대로 분석할 수도 있습니다)');
+    }
+
+    async function addFiles(files) {
+      showError('');
+      for (const file of files) {
+        if (pages.length >= MAX_PAGES) { showError(`한 번에 ${MAX_PAGES}장까지 올릴 수 있습니다.`); break; }
+        try {
+          const inline = await fileToInlineData(file);
+          const sharp = inline.mimeType.startsWith('image/') ? await sharpness(inline.previewUrl) : null;
+          pages.push({ inline, sharp });
+        } catch (err) {
+          showError(err.message);
+        }
+      }
+      renderThumbs();
+    }
+
+    $('#file').addEventListener('change', (e) => { addFiles([...e.target.files]); e.target.value = ''; });
+    const dz = $('#dropzone');
+    dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+    dz.addEventListener('drop', (e) => { e.preventDefault(); dz.classList.remove('over'); addFiles([...e.dataTransfer.files]); });
+
+    // ---------- 분석 ----------
+    async function animateProgress(promise) {
+      const items = [...$('#progress').children];
+      items.forEach((li) => li.className = '');
+      let i = 0;
+      const timer = setInterval(() => {
+        if (i < items.length) { items[i].className = 'doing'; if (i) items[i - 1].className = 'done'; i++; }
+      }, demo ? 500 : 2500);
+      try { return await promise; } finally { clearInterval(timer); items.forEach((li) => li.className = 'done'); }
+    }
+
+    let hash = null;
+    $('#analyze').addEventListener('click', async () => {
+      if (!demo) {
+        hash = await fingerprint(pages.map((p) => p.inline));
+        const dup = findDocByHash(hash);
+        if (dup && !confirm(`이미 올린 문서입니다: "${dup.title}"\n같은 할 일이 두 번 등록될 수 있습니다. 그래도 다시 분석할까요?`)) {
+          location.href = `docs.html#${dup.id}`;
+          return;
+        }
+      }
+      showStep('loading');
+      try {
+        const work = demo
+          ? new Promise((r) => setTimeout(() => r(structuredClone(demo)), 2200))
+          : analyzeDocument(pages.map((p) => p.inline));
+        result = await animateProgress(work);
+        await prepareScans();
+        renderReview();
+        showStep('review');
+      } catch (err) {
+        showStep('upload');
+        showError(err.message);
+      }
+    });
+
+    // ---------- ① 문서 인식 ----------
+    function loadImg(src) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = src;
+      });
+    }
+
+    async function prepareScans() {
+      for (let i = 0; i < pages.length; i++) {
+        const p = pages[i];
+        if (p.inline.mimeType === 'application/pdf') continue;
+        p.img = await loadImg(p.inline.previewUrl);
+        const w = p.img.naturalWidth, h = p.img.naturalHeight;
+        p.found = cornersFromAI(result.pages?.[i]?.corners, w, h);
+        p.corners = p.found || defaultCorners(w, h);
+        p.aiBlurry = !!result.pages?.[i]?.blurry;
+        warp(p);
+      }
+      current = pages.findIndex((p) => p.img);
+    }
+
+    function warp(p) {
+      p.scanned = warpDocument(p.img, p.corners);
+      if ($('#enhance').checked) enhance(p.scanned);
+      p.scanned.className = 'scan-result';
+    }
+
+    function renderScan() {
+      const imgs = pages.filter((p) => p.img);
+      $('#scan-card').hidden = !imgs.length;
+      if (!imgs.length) return;
+      $('#page-tabs').innerHTML = pages.length > 1
+        ? pages.map((p, i) => `<button class="btn small ${i === current ? 'primary' : ''}" data-i="${i}" ${p.img ? '' : 'disabled'}>${i + 1}쪽</button>`).join('')
+        : '';
+      $('#page-tabs').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
+        if (editor) return;
+        current = Number(b.dataset.i);
+        renderScan();
+      }));
+      const p = pages[current];
+      $('#scan-view').innerHTML = '';
+      $('#scan-view').appendChild(p.scanned);
+      $('#scan-hint').textContent = (p.found
+        ? '문서 테두리를 자동으로 찾아 반듯하게 폈습니다. 어긋났다면 "모서리 조정"을 눌러 주세요.'
+        : '문서 테두리를 찾지 못했습니다. "모서리 조정"으로 네 모서리를 직접 맞춰 주세요.')
+        + (p.aiBlurry ? ' ⚠️ AI가 이 쪽은 흐려서 일부를 못 읽었을 수 있다고 알려왔습니다.' : '');
+    }
+
+    $('#adjust').addEventListener('click', () => {
+      const p = pages[current];
+      editor = createCornerEditor($('#scan-view'), p.img, p.corners);
+      $('#adjust').hidden = true;
+      $('#apply-corners').hidden = false;
+    });
+    $('#apply-corners').addEventListener('click', () => {
+      const p = pages[current];
+      p.corners = editor.getCorners();
+      p.found = true;
+      editor = null;
+      warp(p);
+      renderScan();
+      $('#adjust').hidden = false;
+      $('#apply-corners').hidden = true;
+    });
+    $('#enhance').addEventListener('change', () => {
+      if (editor) return;
+      pages.filter((p) => p.img).forEach(warp);
+      renderScan();
+    });
+    const docName = () => ($('#doc-title').value.trim() || '문서').replace(/[\\/:*?"<>|]/g, '_');
+    $('#dl-jpg').addEventListener('click', () => {
+      const p = pages[current];
+      if (p?.scanned) downloadJpg(p.scanned, pages.length > 1 ? `${docName()}-${current + 1}쪽` : docName());
+    });
+    $('#dl-pdf').addEventListener('click', () => {
+      const list = pages.filter((p) => p.scanned).map((p) => p.scanned);
+      if (list.length) downloadPdf(list, docName());
+    });
+
+    // ---------- ② 분석 결과 ----------
+    function renderBadges() {
+      const t = DOC_TYPES[result.doc_type] || DOC_TYPES.other;
+      const lang = getSettings().language;
+      $('#badges').innerHTML = `
+        <span class="pill">${t.icon} ${t.label}</span>
+        <span class="pill">${AUDIENCES[result.audience] || '일반'}</span>
+        ${demo ? '<span class="pill warn">🧪 예시 체험</span>' : ''}
+        ${lang !== 'ko' ? `<span class="pill">🌐 ${LANGUAGES[lang].label}</span>` : ''}`;
+    }
+
+    function copyBtn(text) {
+      return text ? `<button class="btn small copy" data-copy="${esc(text)}">복사</button>` : '';
+    }
+
+    function renderExtras() {
+      const parts = [];
+      if (result.reply) {
+        const r = result.reply;
+        parts.push(`<div class="extra reply">✍️ <b>회신 필요</b>: ${esc(r.what)} — ${esc(r.method)}${r.due_date ? ` (${esc(r.due_date)}까지)` : ''}</div>`);
+      }
+      if (result.payment) {
+        const p = result.payment;
+        parts.push(`<div class="extra payment">💳 <b>납부</b>: ${esc(p.amount)} ${copyBtn(p.amount)}
+          ${p.method ? `· ${esc(p.method)}` : ''}${p.due_date ? ` · ${esc(p.due_date)}까지` : ''}
+          ${p.account ? `<br />${esc(p.bank || '')} ${esc(p.account)} ${esc(p.holder || '')} ${copyBtn(p.account)}` : ''}</div>`);
+      }
+      if (result.contacts?.length) {
+        parts.push(`<div class="extra">📞 ${result.contacts.map((c) =>
+          `${esc(c.name)} <a href="tel:${esc(c.phone.replace(/[^0-9+]/g, ''))}">${esc(c.phone)}</a>`).join(' · ')}</div>`);
+      }
+      $('#extras').innerHTML = parts.join('');
+      $('#extras').querySelectorAll('.copy').forEach((b) => b.addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = '복사됨'; } catch { prompt('복사해 주세요', b.dataset.copy); }
+      }));
+    }
+
+    function fmtTime(iso) {
+      const d = new Date(iso);
+      return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    }
+
+    // ④ 이동
+    async function computeTrip(card) {
+      const box = card.querySelector('.trip');
+      const m = meta.get(card);
+      const location = card.querySelector('.t-location').value.trim();
+      const dueDate = card.querySelector('.t-date').value;
+      const dueTime = card.querySelector('.t-time').value || null;
+      m.trip = null; m.place = null; m.location = location;
+      if (!location) { box.innerHTML = ''; return; }
+      box.innerHTML = '<p class="muted">🗺️ 이동 시간 계산 중…</p>';
+      const { place, trip, error } = await planTaskTrip({ location, dueDate, dueTime, demoPlace: m.demoPlace });
+      if (error || !trip) {
+        box.innerHTML = `<p class="muted">🗺️ ${esc(error || '계산 실패')} <button class="btn small recalc">다시 계산</button></p>`;
+      } else {
+        Object.assign(m, { trip, place });
+        const s = getSettings();
+        box.innerHTML = `<div class="trip-info">
+          🗺️ <b>${esc(place.name)}</b> <span class="muted">${esc(place.address)}</span><br />
+          ${esc(trip.origin.name)}에서 🚗 ${trip.car.minutes}분${trip.car.estimated ? '(추정)' : ''} · ${trip.car.km}km${trip.walkMinutes ? ` · 🚶 ${trip.walkMinutes}분` : ''}<br />
+          ${trip.departAt ? `⏰ <b>${fmtTime(trip.departAt)} 출발</b> (${trip.basis} 기준, 여유 ${s.travelBuffer}분)` : '<span class="muted">도착 시간을 넣으면 출발 시각을 알려드려요</span>'}
+          · <a href="${trip.mapLink}" target="_blank" rel="noopener">대중교통 길찾기</a>
+          ${trip.note ? `<br /><small class="muted">${esc(trip.note)}</small>` : ''}
+          <button class="btn small recalc">다시 계산</button></div>`;
+      }
+      box.querySelector('.recalc')?.addEventListener('click', () => computeTrip(card));
+      showWeather(card);
+    }
+
+    // ③ 날씨 (장소가 있으면 그 장소 기준)
+    async function showWeather(card) {
+      const box = card.querySelector('.weather-line');
+      const dueDate = card.querySelector('.t-date').value;
+      const m = meta.get(card);
+      if (!dueDate || daysLeft(dueDate) < 0) { box.innerHTML = ''; return; }
+      if (daysLeft(dueDate) > 15) { box.innerHTML = '<p class="muted">🌤️ 날씨 예보는 16일 이내 날짜만 볼 수 있습니다.</p>'; return; }
+      try {
+        const pos = m.place ? { lat: m.place.lat, lng: m.place.lng, label: m.place.name } : undefined;
+        const w = await getForecastFor(dueDate, pos);
+        if (!w) { box.innerHTML = ''; return; }
+        const tips = adviceFor(w);
+        box.innerHTML = `<p class="wx-line">${w.icon} 그날 ${esc(w.place)} ${esc(w.text)} ${w.min}~${w.max}℃ · 강수 ${w.rain}%${tips.length ? `<br />${tips.map(esc).join(' · ')}` : ''}</p>`;
+        // 비 예보면 준비물에 우산 자동 추가
+        const items = card.querySelector('.t-items');
+        if (w.rain >= 50 && !items.value.includes('우산')) items.value = items.value ? `${items.value}, 우산` : '우산';
+      } catch { box.innerHTML = ''; }
+    }
+
+    function renderSteps(card, steps) {
+      const box = card.querySelector('.steps');
+      box.hidden = !steps.length;
+      box.querySelector('.step-list').innerHTML = steps.map((s, i) => `
+        <div class="step-row">
+          <span class="step-no">${i + 1}</span>
+          <input class="s-title" value="${esc(s.title)}" />
+          <input type="date" class="s-date" value="${esc(s.date)}" />
+        </div>`).join('');
+    }
+
+    function addTaskCard(t = {}) {
+      const node = $('#task-tpl').content.firstElementChild.cloneNode(true);
+      meta.set(node, { demoPlace: t.demoPlace || null });
+      node.querySelector('.t-kind').value = t.kind || 'deadline';
+      node.querySelector('.t-title').value = t.title || '';
+      node.querySelector('.t-date').value = t.due_date || '';
+      node.querySelector('.t-time').value = t.due_time || '';
+      node.querySelector('.t-location').value = t.location || '';
+      node.querySelector('.t-items').value = (t.items || []).join(', ');
+      node.querySelector('.t-desc').value = t.description || '';
+      if (t.source_text) {
+        node.querySelector('.t-source').textContent = t.source_text;
+        node.querySelector('.source').hidden = false;
+      }
+      if (t.title && !t.due_date) node.querySelector('.t-nodate').hidden = false;
+      if (t.confidence === 'low') { node.querySelector('.t-lowconf').hidden = false; node.classList.add('lowconf'); }
+      renderSteps(node, t.steps || []);
+      node.querySelector('.t-location').addEventListener('change', () => computeTrip(node));
+      node.querySelector('.t-date').addEventListener('change', () => (meta.get(node).place ? computeTrip(node) : showWeather(node)));
+      node.querySelector('.t-time').addEventListener('change', () => meta.get(node).place && computeTrip(node));
+      $('#task-list').appendChild(node);
+      if (t.location) computeTrip(node); else showWeather(node);
+    }
+
+    function renderReview() {
+      renderBadges();
+      renderScan();
+      $('#doc-title').value = result.title || '제목 없음';
+      $('#doc-summary').textContent = result.summary;
+      $('#doc-points').innerHTML = (result.key_points || []).map((p) => `<li>${esc(p)}</li>`).join('');
+      renderExtras();
+      $('#task-list').innerHTML = '';
+      if (!result.tasks.length) {
+        $('#task-list').innerHTML = '<p class="muted card">문서에서 해야 할 일을 찾지 못했습니다. 필요하면 직접 추가하세요.</p>';
+      }
+      result.tasks.forEach(addTaskCard);
+    }
+
+    $('#add-task').addEventListener('click', () => {
+      $('#task-list').querySelector('p.muted')?.remove();
+      addTaskCard();
+    });
+    $('#retry').addEventListener('click', () => { location.href = 'upload.html'; });
+
+    // ---------- 저장 ----------
+    $('#save').addEventListener('click', async () => {
+      const cards = [...document.querySelectorAll('.task-edit')].filter((c) => c.querySelector('.t-include').checked);
+      const tasks = [];
+      for (const c of cards) {
+        const title = c.querySelector('.t-title').value.trim();
+        const dueDate = c.querySelector('.t-date').value;
+        if (!title) { alert('할 일 내용이 비어 있는 항목이 있습니다.'); return; }
+        if (!dueDate) { alert(`"${title}"의 날짜를 입력해 주세요.`); return; }
+        const dueTime = c.querySelector('.t-time').value || null;
+        const loc = c.querySelector('.t-location').value.trim() || null;
+        const m = meta.get(c);
+        const match = m.trip && m.location === loc;
+        // 날짜·시간을 고쳤을 수 있으니 출발 시각은 저장 시점에 다시 계산
+        const departAt = match ? departTime(dueDate, dueTime, m.trip.travelMinutes) : null;
+        const group = crypto.randomUUID();
+        tasks.push({
+          group,
+          kind: c.querySelector('.t-kind').value,
+          title,
+          dueDate,
+          dueTime,
+          location: loc,
+          items: c.querySelector('.t-items').value.split(',').map((s) => s.trim()).filter(Boolean),
+          place: match ? m.place : null,
+          travel: match ? { minutes: m.trip.travelMinutes, basis: m.trip.basis, departAt, mapLink: m.trip.mapLink } : null,
+          description: c.querySelector('.t-desc').value.trim(),
+          sourceText: c.querySelector('.t-source').textContent,
+          reminders: buildReminders(dueDate, dueTime, departAt),
+        });
+        // 단계 계획
+        if (!c.querySelector('.steps').hidden && c.querySelector('.t-steps-on').checked) {
+          c.querySelectorAll('.step-row').forEach((row, i) => {
+            const st = row.querySelector('.s-title').value.trim();
+            const sd = row.querySelector('.s-date').value;
+            if (!st || !sd) return;
+            tasks.push({
+              group, kind: 'step', title: st, dueDate: sd, dueTime: null,
+              description: `"${title}" 준비 ${i + 1}단계`, items: [], sourceText: '',
+              reminders: buildReminders(sd, null).slice(-1), // 당일 아침 한 번만
+            });
+          });
+        }
+      }
+
+      const doc = saveDoc({
+        title: $('#doc-title').value.trim() || '제목 없음',
+        summary: result.summary,
+        keyPoints: result.key_points || [],
+        docType: result.doc_type,
+        audience: result.audience,
+        reply: result.reply,
+        payment: result.payment,
+        contacts: result.contacts || [],
+        hash: demo ? null : hash,
+        demo: !!demo,
+        pageCount: pages.length,
+      });
+      const scans = pages.filter((p) => p.scanned);
+      if (scans.length) await savePages(doc.id, await Promise.all(scans.map((p) => canvasToBlob(p.scanned))));
+      saveTasks(tasks.map((t) => ({ ...t, docId: doc.id })));
+
+      if (tasks.length) await requestPermission();
+      const first = tasks.filter((t) => t.kind !== 'step').map((t) => t.dueDate).sort()[0];
+      location.href = first ? `calendar.html?date=${first}` : 'index.html';
+    });
+
+    // ---------- 예시 체험 모드 ----------
+    const demoKind = new URLSearchParams(location.search).get('demo');
+    if (demoKind) {
+      const sample = loadSample(demoKind);
+      if (sample) {
+        demo = sample.result;
+        pages = [{ inline: sample.page, sharp: null }];
+        renderThumbs();
+        setTimeout(() => $('#analyze').click(), 500);
+      }
+    }
+  </script>
+</body>
+</html>

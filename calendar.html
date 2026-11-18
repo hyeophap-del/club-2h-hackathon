@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>캘린더 - 문서 비서</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <main class="container">
+    <div class="row-between">
+      <button class="btn" id="prev">‹</button>
+      <h1 id="month-label"></h1>
+      <button class="btn" id="next">›</button>
+    </div>
+    <div class="row-gap">
+      <button class="btn small" id="today">오늘</button>
+      <span class="spacer"></span>
+      <button class="btn small" id="export-ics" title="웹을 닫아도 휴대폰이 알람을 울리도록 기본 캘린더로 옮깁니다">📲 휴대폰 캘린더로 내보내기</button>
+    </div>
+    <div class="legend" id="legend"></div>
+    <div class="calendar" id="calendar"></div>
+
+    <section>
+      <div class="row-between">
+        <h2 id="day-label"></h2>
+        <button class="btn" id="add">+ 할 일 추가</button>
+      </div>
+      <div id="day-tasks"></div>
+    </section>
+  </main>
+
+  <dialog id="dlg">
+    <form method="dialog" class="dlg-form">
+      <h3 id="dlg-title">할 일</h3>
+      <label class="field">종류<select id="f-kind"><option value="event">참석</option><option value="deadline">마감</option><option value="reply">회신</option><option value="payment">납부</option><option value="prep">준비</option><option value="step">단계</option></select></label>
+      <label class="field">할 일<input id="f-title" required /></label>
+      <div class="row-gap">
+        <label class="field">마감일<input type="date" id="f-date" required /></label>
+        <label class="field">시간(선택)<input type="time" id="f-time" /></label>
+      </div>
+      <label class="field">세부 내용<textarea id="f-desc" rows="3"></textarea></label>
+      <p class="source" id="f-source" hidden></p>
+      <div class="row-gap">
+        <button class="btn danger" value="delete" id="f-delete">삭제</button>
+        <span class="spacer"></span>
+        <button class="btn" value="cancel" formnovalidate>취소</button>
+        <button class="btn primary" value="save">저장</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module">
+    import { initPage } from './js/nav.js';
+    import { renderMonth } from './js/calendar.js';
+    import { getTasks, getTasksByDate, getDoc, saveTask, updateTask, deleteTask, toggleItem } from './js/storage.js';
+    import { TASK_KINDS } from './js/agents/analyzeAgent.js';
+    import { downloadIcs } from './js/ics.js';
+    import { buildReminders } from './js/notify.js';
+    import { departTime } from './js/agents/routeAgent.js';
+    import { esc, todayKey, toDate, formatDue, dDayLabel } from './js/util.js';
+
+    initPage('calendar.html');
+    const $ = (s) => document.querySelector(s);
+
+    const params = new URLSearchParams(location.search);
+    let selected = params.get('date') || todayKey();
+    let view = toDate(selected);
+    let editingId = null;
+
+    function render() {
+      $('#month-label').textContent = `${view.getFullYear()}년 ${view.getMonth() + 1}월`;
+      renderMonth($('#calendar'), {
+        year: view.getFullYear(),
+        month: view.getMonth(),
+        tasks: getTasks(),
+        selected,
+        onSelect: (key) => { selected = key; render(); },
+      });
+      renderDay();
+    }
+
+    function renderDay() {
+      const d = toDate(selected);
+      $('#day-label').textContent = `${d.getMonth() + 1}월 ${d.getDate()}일 할 일`;
+      const tasks = getTasksByDate(selected).sort((a, b) => (a.dueTime || '99').localeCompare(b.dueTime || '99'));
+      if (!tasks.length) {
+        $('#day-tasks').innerHTML = '<p class="muted">이 날짜에 할 일이 없습니다.</p>';
+        return;
+      }
+      $('#day-tasks').innerHTML = tasks.map((t) => {
+        const doc = t.docId ? getDoc(t.docId) : null;
+        return `<div class="card task ${t.done ? 'done' : ''}" data-id="${t.id}">
+          <input type="checkbox" class="done-toggle" ${t.done ? 'checked' : ''} aria-label="완료" />
+          <div class="task-body">
+            <div class="task-title">${TASK_KINDS[t.kind] ? `<span class="kind ${TASK_KINDS[t.kind].cls}">${TASK_KINDS[t.kind].label}</span>` : ""} ${esc(t.title)} <span class="badge">${dDayLabel(t.dueDate)}</span></div>
+            <div class="muted">${esc(formatDue(t))}${doc ? ` · 📄 ${esc(doc.title)}` : ''}</div>
+            ${t.place || t.location ? `<div>📍 ${esc(t.place?.name || t.location)}${t.travel?.departAt ? ` · ⏰ ${new Date(t.travel.departAt).toTimeString().slice(0, 5)} 출발 (${t.travel.minutes}분)` : ''}${t.travel?.mapLink ? ` · <a href="${t.travel.mapLink}" target="_blank" rel="noopener">길찾기</a>` : ''}</div>` : ''}
+            ${t.items?.length ? `<div class="checklist">🎒 ${t.items.map((i) => `<label class="check-item ${(t.itemsDone || []).includes(i) ? 'on' : ''}"><input type="checkbox" data-item="${esc(i)}" ${(t.itemsDone || []).includes(i) ? 'checked' : ''} /> ${esc(i)}</label>`).join('')}</div>` : ''}
+            ${t.description ? `<div>${esc(t.description)}</div>` : ''}
+            ${t.sourceText ? `<div class="source">근거: “${esc(t.sourceText)}”</div>` : ''}
+          </div>
+          <button class="btn small edit">수정</button>
+        </div>`;
+      }).join('');
+
+      $('#day-tasks').querySelectorAll('.task').forEach((el) => {
+        el.querySelector('.done-toggle').addEventListener('change', (e) => {
+          updateTask(el.dataset.id, { done: e.target.checked });
+          render();
+        });
+        el.querySelector('.edit').addEventListener('click', () => openDialog(el.dataset.id));
+        el.querySelectorAll('.checklist input').forEach((cb) => cb.addEventListener('change', () => {
+          toggleItem(el.dataset.id, cb.dataset.item);
+          renderDay();
+        }));
+      });
+    }
+
+    function openDialog(id) {
+      editingId = id;
+      const t = id ? getTasks().find((x) => x.id === id) : { dueDate: selected };
+      $('#dlg-title').textContent = id ? '할 일 수정' : '할 일 추가';
+      $('#f-kind').value = t.kind || 'deadline';
+      $('#f-title').value = t.title || '';
+      $('#f-date').value = t.dueDate || selected;
+      $('#f-time').value = t.dueTime || '';
+      $('#f-desc').value = t.description || '';
+      $('#f-source').hidden = !t.sourceText;
+      $('#f-source').textContent = t.sourceText ? `근거: “${t.sourceText}”` : '';
+      $('#f-delete').hidden = !id;
+      $('#dlg').returnValue = ''; // Esc로 닫을 때 이전 값(save)이 남지 않도록
+      $('#dlg').showModal();
+    }
+
+    $('#dlg').addEventListener('close', () => {
+      const action = $('#dlg').returnValue;
+      if (action === 'delete' && editingId) {
+        if (confirm('이 할 일을 삭제할까요?')) deleteTask(editingId);
+      } else if (action === 'save') {
+        const dueDate = $('#f-date').value;
+        const dueTime = $('#f-time').value || null;
+        const old = editingId ? getTasks().find((x) => x.id === editingId) : null;
+        // 이동 정보가 있으면 바뀐 날짜·시간으로 출발 시각 다시 계산
+        const travel = old?.travel ? { ...old.travel, departAt: departTime(dueDate, dueTime, old.travel.minutes) } : null;
+        const data = {
+          kind: $('#f-kind').value,
+          title: $('#f-title').value.trim(),
+          dueDate,
+          dueTime,
+          description: $('#f-desc').value.trim(),
+          travel,
+          reminders: buildReminders(dueDate, dueTime, travel?.departAt),
+        };
+        if (editingId) updateTask(editingId, data);
+        else saveTask(data);
+        selected = dueDate;
+        view = toDate(dueDate);
+      }
+      render();
+    });
+
+    $('#add').addEventListener('click', () => openDialog(null));
+    $('#export-ics').addEventListener('click', () => {
+      const list = getTasks().filter((t) => !t.done && t.dueDate);
+      if (!list.length) { alert('내보낼 할 일이 없습니다.'); return; }
+      downloadIcs(list, '문서비서-할일');
+      alert('받은 .ics 파일을 열면 휴대폰/PC 기본 캘린더에 일정과 알람이 추가됩니다.');
+    });
+    $('#legend').innerHTML = Object.values(TASK_KINDS).map((k) => `<span class="kind ${k.cls}">${k.label}</span>`).join('');
+    $('#prev').addEventListener('click', () => { view = new Date(view.getFullYear(), view.getMonth() - 1, 1); render(); });
+    $('#next').addEventListener('click', () => { view = new Date(view.getFullYear(), view.getMonth() + 1, 1); render(); });
+    $('#today').addEventListener('click', () => { selected = todayKey(); view = toDate(selected); render(); });
+
+    render();
+  </script>
+</body>
+</html>

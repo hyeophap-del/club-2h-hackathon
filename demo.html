@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>문서 비서 시연</title>
+  <link rel="icon" href="icon.svg" />
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    /* ===== 시연 화면 전용 스타일 ===== */
+    :root {
+      --phone-w: 390px;   /* 아이폰 14 기준 CSS 픽셀 */
+      --phone-h: 844px;
+      --bezel: 14px;
+      --shadow: 0 1px 2px rgb(15 23 42 / 0.05), 0 10px 30px rgb(15 23 42 / 0.08);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 10px 30px rgb(0 0 0 / 0.35); }
+    }
+    body { overflow-x: hidden; }
+
+    .stage {
+      display: flex; gap: 40px; align-items: flex-start; justify-content: center;
+      max-width: 1180px; margin: 0 auto; padding: 24px 16px 40px;
+    }
+
+    /* --- 휴대폰 목업 --- */
+    .phone-col { flex-shrink: 0; position: sticky; top: 16px; }
+    /* JS가 축소 비율에 맞춰 이 상자의 크기를 정하고, 안쪽 .phone을 transform으로 축소 */
+    .phone-fit { position: relative; margin: 0 auto; }
+    .phone {
+      position: absolute; top: 0; left: 0; transform-origin: top left;
+      width: calc(var(--phone-w) + var(--bezel) * 2);
+      height: calc(var(--phone-h) + var(--bezel) * 2);
+      padding: var(--bezel); border-radius: 62px;
+      background: linear-gradient(145deg, #2a2d36, #0d0f14);
+      box-shadow: 0 0 0 2px #3a3e4a, 0 30px 60px rgb(0 0 0 / 0.35), inset 0 0 0 2px #000;
+    }
+    /* 옆면 버튼 장식 */
+    .phone::before, .phone::after { content: ''; position: absolute; width: 4px; background: #2a2d36; border-radius: 2px; }
+    .phone::before { left: -5px; top: 170px; height: 64px; box-shadow: 0 84px 0 #2a2d36; }
+    .phone::after { right: -5px; top: 220px; height: 96px; }
+    .screen { position: relative; width: 100%; height: 100%; border-radius: 48px; overflow: hidden; background: var(--bg); }
+    .screen iframe { display: block; width: 100%; height: 100%; border: 0; background: var(--bg); }
+    /* 노치(다이내믹 아일랜드) */
+    .notch {
+      position: absolute; top: 11px; left: 50%; transform: translateX(-50%); z-index: 2;
+      width: 120px; height: 34px; border-radius: 20px; background: #000; pointer-events: none;
+    }
+    .home-bar { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); width: 134px; height: 5px; border-radius: 3px; background: rgb(0 0 0 / 0.35); z-index: 2; pointer-events: none; }
+    @media (prefers-color-scheme: dark) { .home-bar { background: rgb(255 255 255 / 0.45); } }
+    .url-line { margin-top: 12px; text-align: center; font-size: 0.82rem; color: var(--muted); word-break: break-all; }
+    .url-line code { font-size: 0.8rem; }
+
+    /* --- 컨트롤 패널 --- */
+    .panel { flex: 1; min-width: 0; max-width: 560px; }
+    .panel-head { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+    .panel-head img { width: 44px; height: 44px; }
+    .panel-head h1 { margin: 0; font-size: 1.4rem; }
+    .panel-head p { margin: 0; color: var(--muted); font-size: 0.92rem; }
+    .pnl { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; margin-top: 14px; box-shadow: var(--shadow); }
+    .pnl h2 { margin: 0 0 10px; font-size: 1rem; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .pnl h2 small { color: var(--muted); font-weight: 400; font-size: 0.8rem; }
+
+    .nav-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    @media (min-width: 480px) { .nav-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    .nav-grid .btn { justify-content: flex-start; gap: 6px; padding: 10px 12px; border-radius: 10px; min-width: 0; text-align: left; }
+    .nav-grid .btn.on { background: var(--primary-weak); border-color: var(--primary); color: var(--primary); font-weight: 600; }
+    .nav-grid .btn.feature { border-color: var(--primary); }
+    .tools { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+
+    /* 발표 대본 */
+    .script { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; counter-reset: s; }
+    .script li {
+      counter-increment: s; display: grid; grid-template-columns: 28px 1fr; gap: 10px;
+      padding: 10px; border-radius: 12px; border: 1px solid var(--line); cursor: pointer; transition: border-color .15s, background .15s;
+    }
+    .script li:hover { border-color: var(--primary); }
+    .script li.on { border-color: var(--primary); background: var(--primary-weak); }
+    .script li::before {
+      content: counter(s); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+      background: var(--primary); color: #fff; font-size: 0.85rem; font-weight: 700;
+    }
+    .script b { display: block; font-size: 0.95rem; }
+    .script .say { margin: 3px 0 0; font-size: 0.88rem; color: var(--muted); word-break: keep-all; }
+    .script .say q { color: var(--text); quotes: '“' '”'; }
+    .script .act { font-size: 0.78rem; color: var(--primary); margin-top: 4px; }
+    .hint { font-size: 0.8rem; color: var(--muted); margin: 10px 0 0; }
+
+    /* 좁은 화면: 위아래로 쌓기 */
+    @media (max-width: 900px) {
+      .stage { flex-direction: column; align-items: stretch; gap: 20px; }
+      .phone-col { position: static; }
+      .panel { max-width: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <!-- 왼쪽: 휴대폰 목업 -->
+    <div class="phone-col" id="phoneCol">
+      <div class="phone-fit" id="phoneFit">
+        <div class="phone" id="phone">
+          <div class="screen">
+            <div class="notch" aria-hidden="true"></div>
+            <iframe id="app" src="index.html" title="문서 비서 앱 화면"></iframe>
+            <div class="home-bar" aria-hidden="true"></div>
+          </div>
+        </div>
+      </div>
+      <div class="url-line">현재 화면: <code id="curUrl">index.html</code> · <a id="openTab" href="index.html" target="_blank" rel="noopener">새 탭에서 열기 ↗</a></div>
+    </div>
+
+    <!-- 오른쪽: 컨트롤 패널 -->
+    <aside class="panel">
+      <div class="panel-head">
+        <img src="icon.svg" alt="" />
+        <div>
+          <h1>문서 비서 시연</h1>
+          <p>찍으면, 그날의 할 일이 정리됩니다</p>
+        </div>
+      </div>
+
+      <section class="pnl">
+        <h2>화면 이동 <small>버튼을 누르면 휴대폰 화면이 바뀝니다</small></h2>
+        <div class="nav-grid" id="navGrid">
+          <button class="btn" data-src="index.html">🏠 홈</button>
+          <button class="btn feature" data-src="upload.html?demo=parent">🏫 학부모 예시</button>
+          <button class="btn feature" data-src="upload.html?demo=student">🎓 대학생 예시</button>
+          <button class="btn" data-src="calendar.html">📅 캘린더</button>
+          <button class="btn" data-src="docs.html">🗂️ 문서함</button>
+          <button class="btn" data-src="settings.html">⚙️ 설정</button>
+        </div>
+        <div class="tools">
+          <a class="btn primary" href="pitch.html" target="_blank" rel="noopener">💡 아이디어 소개</a>
+          <button class="btn" id="reloadBtn">↻ 새로고침</button>
+          <button class="btn danger" id="resetBtn">🧹 데모 데이터 초기화</button>
+        </div>
+        <p class="hint">초기화는 할 일·문서·브리핑 기록만 지웁니다. 설정(API 키)은 그대로 남습니다.</p>
+      </section>
+
+      <section class="pnl">
+        <h2>발표 대본 <small>단계를 누르면 해당 화면으로</small></h2>
+        <ol class="script" id="script">
+          <li data-src="index.html">
+            <div><b>문제 제기</b>
+              <p class="say"><q>가정통신문은 일주일에 몇 장씩 오는데, 날짜는 적어 둬도 준비물·회신서·출발 시각은 결국 머릿속에 남깁니다.</q></p>
+              <div class="act">홈 화면 — 아직 비어 있는 상태를 보여 주기</div></div>
+          </li>
+          <li data-src="upload.html?demo=parent">
+            <div><b>사진 한 장 → 문서 인식 · 분석</b>
+              <p class="say"><q>기울어진 체험학습 안내문을 올리면 ① 반듯하게 펴서 PDF로 저장하고, ② Gemini가 단 한 번 읽어 날짜·장소·준비물·회신서·체험비를 뽑습니다.</q></p>
+              <div class="act">🏫 학부모 예시 — 펴진 문서, 근거 문장 강조</div></div>
+          </li>
+          <li data-src="upload.html?demo=parent">
+            <div><b>날씨 · 이동이 붙는 순간</b>
+              <p class="say"><q>③ 그날 비 예보를 보고 우산을 준비물에 자동으로 넣고, ④ 집에서 과학관까지 소요시간으로 출발 시각과 출발 알람을 잡습니다. AI가 제안하고, 저장은 제가 확인한 뒤에 합니다.</q></p>
+              <div class="act">확인 화면 아래로 스크롤 → 저장</div></div>
+          </li>
+          <li data-src="upload.html?demo=student">
+            <div><b>대학생: 마감에서 거꾸로</b>
+              <p class="say"><q>과제 공지는 마감일만 있으면 미루게 됩니다. 마감에서 거꾸로 "구현 → 실험 → 보고서 → 제출" 단계를 나눠 캘린더에 깝니다.</q></p>
+              <div class="act">🎓 대학생 예시 — 단계 계획 확인 후 저장</div></div>
+          </li>
+          <li data-src="calendar.html">
+            <div><b>캘린더 · .ics</b>
+              <p class="say"><q>모든 할 일이 캘린더에 들어가고, .ics로 휴대폰 기본 캘린더에 옮기면 탭이 닫혀도 알람이 옵니다.</q></p>
+              <div class="act">📅 캘린더 — 날짜 눌러 보기</div></div>
+          </li>
+          <li data-src="index.html">
+            <div><b>D-day 브리핑으로 마무리</b>
+              <p class="say"><q>전날 저녁과 당일 아침, 이 카드 한 장이면 됩니다. "내일 09:00 · 비 60% 우산 · 08:05 출발 · 도시락 ✅". 문서 → 일정이 아니라, 문서 → 그날의 행동 계획입니다.</q></p>
+              <div class="act">🏠 홈 — 오늘·내일 브리핑 카드, 🗂️ 문서함 검색</div></div>
+          </li>
+        </ol>
+        <p class="hint">💡 예시 체험 모드는 API 키 없이 동작합니다. 시연 전 「데모 데이터 초기화」로 깨끗한 상태에서 시작하세요.</p>
+      </section>
+    </aside>
+  </div>
+
+  <script>
+    // ===== 시연 화면 동작 =====
+    const app = document.getElementById('app');
+    const phone = document.getElementById('phone');
+    const phoneFit = document.getElementById('phoneFit');
+    const phoneCol = document.getElementById('phoneCol');
+    const curUrl = document.getElementById('curUrl');
+    const openTab = document.getElementById('openTab');
+    const navBtns = document.querySelectorAll('#navGrid [data-src]');
+    const steps = document.querySelectorAll('#script li');
+
+    // 앱 화면 바꾸기
+    function go(src) {
+      app.src = src;
+      markActive(src);
+    }
+
+    // 현재 주소에 맞는 버튼 강조 + "새 탭에서 열기" 링크 갱신
+    function markActive(src) {
+      navBtns.forEach((b) => b.classList.toggle('on', b.dataset.src === src));
+      curUrl.textContent = src;
+      openTab.href = src;
+    }
+
+    navBtns.forEach((b) => b.addEventListener('click', () => go(b.dataset.src)));
+    steps.forEach((li) => li.addEventListener('click', () => {
+      steps.forEach((x) => x.classList.toggle('on', x === li));
+      go(li.dataset.src);
+    }));
+
+    // 휴대폰 안에서 링크를 눌러 이동해도 현재 주소를 따라감 (같은 출처라 읽을 수 있음)
+    app.addEventListener('load', () => {
+      try {
+        const loc = app.contentWindow.location;
+        const page = loc.pathname.split('/').pop() || 'index.html';
+        markActive(page + loc.search + loc.hash);
+      } catch { /* 다른 출처면 무시 */ }
+    });
+
+    document.getElementById('reloadBtn').addEventListener('click', () => {
+      try { app.contentWindow.location.reload(); } catch { app.src = app.src; }
+    });
+
+    // 데모 데이터 초기화: docs · tasks · lastBriefing만 지움 (settings는 API 키가 있어서 남김)
+    document.getElementById('resetBtn').addEventListener('click', async () => {
+      if (!confirm('할 일·문서·브리핑 기록을 모두 지울까요?\n(설정과 API 키는 그대로 남습니다)')) return;
+      ['docs', 'tasks', 'lastBriefing'].forEach((k) => {
+        try { localStorage.removeItem(k); } catch { /* 무시 */ }
+      });
+      await clearArchive();
+      go('index.html');
+    });
+
+    // 문서함의 스캔 이미지(IndexedDB 'doc-assistant' / 'pages')도 비움. 실패해도 진행.
+    function clearArchive() {
+      return new Promise((resolve) => {
+        try {
+          const req = indexedDB.open('doc-assistant', 1);
+          req.onupgradeneeded = () => req.result.createObjectStore('pages'); // 앱과 같은 구조로 생성
+          req.onsuccess = () => {
+            const db = req.result;
+            try {
+              const t = db.transaction('pages', 'readwrite');
+              t.objectStore('pages').clear();
+              t.oncomplete = t.onerror = () => { db.close(); resolve(); };
+            } catch { db.close(); resolve(); }
+          };
+          req.onerror = () => resolve(); // 버전이 다르면 건너뜀
+        } catch { resolve(); }
+      });
+    }
+
+    // 휴대폰 크기 맞추기: 넓은 화면은 화면 높이에, 좁은 화면은 가로 폭에 맞춰 축소 (확대는 안 함)
+    function fitPhone() {
+      const w = phone.offsetWidth;   // 베젤 포함 원래 크기
+      const h = phone.offsetHeight;
+      const stacked = window.matchMedia('(max-width: 900px)').matches;
+      const availW = stacked ? phoneCol.clientWidth : w;
+      const availH = stacked ? Infinity : window.innerHeight - 80;
+      const scale = Math.min(1, availW / w, availH / h);
+      phone.style.transform = `scale(${scale})`;
+      phoneFit.style.width = `${w * scale}px`;
+      phoneFit.style.height = `${h * scale}px`;
+    }
+    window.addEventListener('resize', fitPhone);
+    fitPhone();
+    markActive('index.html');
+  </script>
+</body>
+</html>
